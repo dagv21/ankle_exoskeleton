@@ -95,28 +95,21 @@ add_library(dynamixel_workbench
 add_dependencies(dynamixel_workbench ${catkin_EXPORTED_TARGETS})
 target_link_libraries(dynamixel_workbench ${catkin_LIBRARIES})
 
-#add_library(trajectory_generator
-#  src/nodes/trajectory_generator.cpp
-#)
-#add_dependencies(trajectory_generator ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(trajectory_generator ${catkin_LIBRARIES})
-
-
-#add_executable(dynamixel_controllers src/nodes/dynamixel_controllers.cpp src/nodes/trajectory_generator.cpp)
-#target_link_libraries(dynamixel_controllers ${catkin_LIBRARIES} dynamixel_workbench trajectory_generator ${Eigen3_LIBRARIES} ${YAML_CPP_LIBRARIES})
-
 add_executable(dynamixel_controllers src/nodes/dynamixel_controllers.cpp)
 target_link_libraries(dynamixel_controllers ${catkin_LIBRARIES} dynamixel_workbench ${Eigen3_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(find_dynamixel src/nodes/find_dynamixel.cpp)
 target_link_libraries(find_dynamixel ${catkin_LIBRARIES} dynamixel_workbench)
 
+add_executable(current_based_pwm_controller src/nodes/current_based_pwm_controller.cpp)
+target_link_libraries(current_based_pwm_controller ${catkin_LIBRARIES})
+
 
 
 ################################################################################
 # Install
 ################################################################################
-install(TARGETS dynamixel_workbench find_dynamixel dynamixel_controllers
+install(TARGETS dynamixel_workbench find_dynamixel dynamixel_controllers current_based_pwm_controller
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

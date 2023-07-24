@@ -1,18 +1,20 @@
 #ifndef DYNAMIXEL_CURRENT_BASED_PWM_CONTROLLER_H
-#define DYNAMIXEL_CURRENT_BASED_PWM_CONTROLLER_H
+#define DYNAMIXEL_TORQUE_BASED_VELOCITY_CONTROLLER_H
 
-#include <chrono>
-#include <thread>
+
 #include <ros/ros.h>
 #include <ros/time.h>
+#include <signal.h>
+
 #include <std_msgs/Int32.h>
 #include <std_msgs/Float32.h>
 #include <ankle_exoskeleton/DynamixelStatusList.h>
+#include <ankle_exoskeleton/DynamixelCmdSimplified.h>
 
-class DynamixelCurrentBasedPWMController
+class DynamixelTorqueBasedVelocityController
 {
 public:
-  DynamixelCurrentBasedPWMController();
+  DynamixelTorqueBasedVelocityController();
   void run();
   void publishOnShutdown();
 
@@ -29,16 +31,18 @@ private:
   ros::Subscriber goal_desired_value_sub_;
   ros::Subscriber dynamixel_status_sub_;
   ros::Publisher goal_velocity_pub_;
-  ros::Publisher goal_current_pub_;
-  
+   
   std::vector<int16_t> present_current_vector_;
   std::vector<int16_t> present_velocity_vector_;
   double present_current_;
   double present_velocity_;
+  double motor_id_;
+  bool is_motorState_updated_;
+  
   double desired_value_;
   bool is_desired_value_updated_;
-  bool is_motorState_updated_;
-  double motor_id_;
+  
+ 
   ros::Time previous_time_;
   int32_t previous_error_;
   
@@ -47,4 +51,4 @@ private:
   
 };
 
-#endif  // DYNAMIXEL_CURRENT_BASED_PWM_CONTROLLER_H
+#endif  // DYNAMIXEL_TORQUE_BASED_VELOCITY_CONTROLLER_H

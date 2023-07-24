@@ -34,6 +34,8 @@ def publish_desired_values():
     while not rospy.is_shutdown():
         for value in desired_values:
             if value < 0:
+                if abs(value) > 2:
+                    value = -2
                 pub.publish(value)
             else:
                 pub.publish(0)

@@ -101,15 +101,15 @@ target_link_libraries(dynamixel_controllers ${catkin_LIBRARIES} dynamixel_workbe
 add_executable(find_dynamixel src/nodes/find_dynamixel.cpp)
 target_link_libraries(find_dynamixel ${catkin_LIBRARIES} dynamixel_workbench)
 
-add_executable(current_based_pwm_controller src/nodes/current_based_pwm_controller.cpp)
-target_link_libraries(current_based_pwm_controller ${catkin_LIBRARIES})
+add_executable(torque_based_vel_controller src/nodes/torque_based_vel_controller.cpp)
+target_link_libraries(torque_based_vel_controller ${catkin_LIBRARIES})
 
 
 
 ################################################################################
 # Install
 ################################################################################
-install(TARGETS dynamixel_workbench find_dynamixel dynamixel_controllers current_based_pwm_controller
+install(TARGETS dynamixel_workbench find_dynamixel dynamixel_controllers torque_based_vel_controller
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

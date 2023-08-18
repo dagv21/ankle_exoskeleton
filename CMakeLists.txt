@@ -98,18 +98,14 @@ target_link_libraries(dynamixel_workbench ${catkin_LIBRARIES})
 add_executable(dynamixel_controllers src/nodes/dynamixel_controllers.cpp)
 target_link_libraries(dynamixel_controllers ${catkin_LIBRARIES} dynamixel_workbench ${Eigen3_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(find_dynamixel src/nodes/find_dynamixel.cpp)
-target_link_libraries(find_dynamixel ${catkin_LIBRARIES} dynamixel_workbench)
-
 add_executable(torque_based_vel_controller src/nodes/torque_based_vel_controller.cpp)
 target_link_libraries(torque_based_vel_controller ${catkin_LIBRARIES})
-
 
 
 ################################################################################
 # Install
 ################################################################################
-install(TARGETS dynamixel_workbench find_dynamixel dynamixel_controllers torque_based_vel_controller
+install(TARGETS dynamixel_workbench dynamixel_controllers torque_based_vel_controller
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

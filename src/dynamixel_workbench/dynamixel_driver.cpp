@@ -17,6 +17,7 @@
 /* Authors: Taehun Lim (Darby) */
 
 #include "../../include/dynamixel_workbench/dynamixel_driver.h"
+#include <iostream>
 
 DynamixelDriver::DynamixelDriver() : tools_cnt_(0),
                                     sync_write_handler_cnt_(0),
@@ -573,9 +574,9 @@ bool DynamixelDriver::writeRegister(uint8_t id, uint16_t address, uint16_t lengt
 #if defined(__OPENCR__) || defined(__OPENCM904__)
     delay(10);
 #else
-    usleep(1000*10);
+    usleep(100);
 #endif
-
+  
   sdk_error.dxl_comm_result = packetHandler_->writeTxRx(portHandler_,
                                                         id,
                                                         address,
@@ -620,7 +621,7 @@ bool DynamixelDriver::writeRegister(uint8_t id, const char *item_name, int32_t d
 #if defined(__OPENCR__) || defined(__OPENCM904__)
     delay(10);
 #else
-    usleep(1000*10);
+    usleep(100);
 #endif
 
   switch (control_item->data_length)
@@ -684,7 +685,7 @@ bool DynamixelDriver::writeOnlyRegister(uint8_t id, uint16_t address, uint16_t l
 #if defined(__OPENCR__) || defined(__OPENCM904__)
     delay(10);
 #else
-    usleep(1000*10);
+    usleep(100);
 #endif
 
   sdk_error.dxl_comm_result = packetHandler_->writeTxOnly(portHandler_,
@@ -721,7 +722,7 @@ bool DynamixelDriver::writeOnlyRegister(uint8_t id, const char *item_name, int32
 #if defined(__OPENCR__) || defined(__OPENCM904__)
     delay(10);
 #else
-    usleep(1000*10);
+    usleep(100);
 #endif
 
   switch (control_item->data_length)

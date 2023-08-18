@@ -31,6 +31,8 @@ private:
   ros::Subscriber goal_desired_value_sub_;
   ros::Subscriber dynamixel_status_sub_;
   ros::Publisher goal_velocity_pub_;
+  
+  std_msgs::Int32 velocity_msg_;
    
   std::vector<int16_t> present_current_vector_;
   std::vector<int16_t> present_velocity_vector_;
@@ -42,10 +44,7 @@ private:
   double desired_value_;
   bool is_desired_value_updated_;
   
- 
   ros::Time previous_time_;
-  int32_t previous_error_;
-  
   double previous_filter_value_;
 
   

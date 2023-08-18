@@ -24,6 +24,7 @@ DynamixelTorqueBasedVelocityController::DynamixelTorqueBasedVelocityController()
 
   desired_value_ = 0.0; // Initial desired value 0.0 Nm
 
+  previous_time_ = ros::Time::now();
   previous_filter_value_ = 0.0;
 }
 
@@ -67,28 +68,58 @@ void DynamixelTorqueBasedVelocityController::dynamixelStatusCallback(const ankle
 
 double DynamixelTorqueBasedVelocityController::lowPassFilter(double input)
 {
-  double filterFactor = 0.9;
-  double output = filterFactor * input + (1.0 - filterFactor) * previous_filter_value_;
-  previous_filter_value_ = output; // Update previous value for the next iteration
+  double cutoffFrequency = 100; // Hz
+  double sampleRate = 400;
+  // Calculate the analog cutoff frequency
+  double analogCutoffFreq = 2.0 * M_PI * cutoffFrequency / sampleRate;
+
+  // Calculate the filter coefficients
+  double wc = tan(analogCutoffFreq / 2.0);
+  double wc2 = wc * wc;
+  double sqrt2 = sqrt(2.0);
+
+  // // Coefficients for the Butterworth filter
+  // a0 = wc2 + 2.0 * wc + 1.0;
+  // a1 = 2.0 * (wc2 - 1.0) / a0;
+  // a2 = (wc2 - 2.0 * wc + 1.0) / a0;
+  // b1 = 2.0 * (wc2 - 1.0) / a0;
+  // b2 = (1.0 - 2.0 * wc + wc2) / a0;
+  //
+  // // Initialize previous input and output values to 0
+  // x1 = x2 = y1 = y2 = 0.0;
+
+
+  ros::Time current_time = ros::Time::now();
+  double deltaTime = (current_time - previous_time_).toSec();
+
+  double alpha = 1.0 / (1.0 + 2.0 * M_PI * cutoffFrequency * deltaTime);
+
+  double output = alpha * input + (1.0 - alpha) * previous_filter_value_;
+
+  previous_filter_value_ = output;
+  previous_time_ = current_time;
+
   return output;
 }
 
 void DynamixelTorqueBasedVelocityController::run()
 {
-  ros::Rate rate(300);
+  ros::Rate rate(100);
   ROS_INFO("Starting Controller");
+  ros::Publisher filtered_pub = nh_.advertise<std_msgs::Float32>("/filtered_data", 1);
+  ros::Publisher unfiltered_pub = nh_.advertise<std_msgs::Float32>("/unfiltered_data", 1);
   while (ros::ok())
   {
     if (is_motorState_updated_)
     {
       // Torque Control based on Current Feedback (Low Level: Velocity Control)
-      double Bv_gain = 0.015;
+      double Bv_gain = 0.02;
 
       double K_motor = 1.8;  // Nm/A
       double desired_current = (desired_value_ / K_motor); // Torque to Current
 
       double error_current = desired_current - present_current_;
-      if (abs(error_current) <= 0.09) // Tolerance of 50 mA
+      if (abs(error_current) <= 0.01) // Tolerance of 50 mA
         error_current = 0;
 
       double u_velocity = error_current * 1/Bv_gain ;
@@ -103,12 +134,18 @@ void DynamixelTorqueBasedVelocityController::run()
 
       double u_velocity_filtered = lowPassFilter(u_velocity);
 
-      int32_t velocity_control = u_velocity_filtered/0.229;
-      std::cout << "Error: " << error_current << "\tDesired Motor Velocity: " << u_velocity << "rpm" << "\tRegister Velocity: " << velocity_control <<'\n';
+      std_msgs::Float32 filtered_msg, unfiltered_msg;
+      filtered_msg.data = u_velocity_filtered;
+      unfiltered_msg.data = u_velocity;
+      filtered_pub.publish(filtered_msg);
+      unfiltered_pub.publish(unfiltered_msg);
 
-      std_msgs::Int32 velocity_msg;
-      velocity_msg.data = velocity_control;
-      goal_velocity_pub_.publish(velocity_msg);
+      int32_t velocity_control = u_velocity/0.229; //u_velocity_filtered/0.229;
+      // std::cout << "Error: " << error_current << "\tDesired Motor Velocity: " << u_velocity << "rpm" << "\tRegister Velocity: " << velocity_control <<'\n';
+
+
+      velocity_msg_.data = velocity_control;
+      goal_velocity_pub_.publish(velocity_msg_);
 
       is_motorState_updated_ = false;
     }

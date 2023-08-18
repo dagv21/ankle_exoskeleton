@@ -116,6 +116,7 @@ class DynamixelController
                                
   void disableTorque();         
   void setControlMode(const std::string control_mode);        
+
 };
 
 #endif //DYNAMIXEL_WORKBENCH_CONTROLLERS_H

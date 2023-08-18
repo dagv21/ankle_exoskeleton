@@ -61,7 +61,7 @@ bool DynamixelController::getDynamixelsInfo(const std::string yaml_file)
       // Default Parameters for motor -> name: motor id:1
       ROS_WARN("Running without YAML file, setting ID: 1");
       dynamixel["motor"]["ID"] = 1;
-      dynamixel["motor"]["Return_Delay_Time"] = 0;
+      dynamixel["motor"]["Return_Delay_Time"] = 4;
     }
 
   if (dynamixel == NULL)
@@ -132,6 +132,7 @@ bool DynamixelController::initDynamixels(void)
         if (info.second.item_name != "ID" && info.second.item_name != "Baud_Rate")
         {
           bool result = dxl_wb_->itemWrite((uint8_t)dxl.second, info.second.item_name.c_str(), info.second.value, &log);
+          result = 1;
           if (result == false)
           {
             ROS_ERROR("%s", log);
@@ -158,9 +159,9 @@ bool DynamixelController::initControlItems(void)
   // const ControlItem *goal_position = dxl_wb_->getItemInfo(it->second, "Goal_Position");
   // if (goal_position == NULL) return false;
   //
-  // const ControlItem *goal_velocity = dxl_wb_->getItemInfo(it->second, "Goal_Velocity");
-  // if (goal_velocity == NULL)  goal_velocity = dxl_wb_->getItemInfo(it->second, "Moving_Speed");
-  // if (goal_velocity == NULL)  return false;
+  const ControlItem *goal_velocity = dxl_wb_->getItemInfo(it->second, "Goal_Velocity");
+  if (goal_velocity == NULL)  goal_velocity = dxl_wb_->getItemInfo(it->second, "Moving_Speed");
+  if (goal_velocity == NULL)  return false;
   //
   // const ControlItem *goal_current = dxl_wb_->getItemInfo(it->second, "Goal_Current");
   // if (goal_current == NULL) return false;
@@ -199,7 +200,7 @@ bool DynamixelController::initControlItems(void)
   if (present_temperature == NULL) return false;
 
   // control_items_["Goal_Position"] = goal_position;
-  // control_items_["Goal_Velocity"] = goal_velocity;
+  control_items_["Goal_Velocity"] = goal_velocity;
   // control_items_["Goal_Current"] = goal_current;
   // control_items_["Goal_PWM"] = goal_pwm;
 
@@ -230,16 +231,16 @@ bool DynamixelController::initSDKHandlers(void)
   //   ROS_INFO("Goal Position: %s", log);
   // }
   //
-  // result = dxl_wb_->addSyncWriteHandler(control_items_["Goal_Velocity"]->address, control_items_["Goal_Velocity"]->data_length, &log);
-  // if (result == false)
-  // {
-  //   ROS_ERROR("%s", log);
-  //   return result;
-  // }
-  // else
-  // {
-  //   ROS_INFO("Goal Velocity: %s", log);
-  // }
+  result = dxl_wb_->addSyncWriteHandler(control_items_["Goal_Velocity"]->address, control_items_["Goal_Velocity"]->data_length, &log);
+  if (result == false)
+  {
+    ROS_ERROR("%s", log);
+    return result;
+  }
+  else
+  {
+    ROS_INFO("Goal Velocity: %s", log);
+  }
   //
   // result = dxl_wb_->addSyncWriteHandler(control_items_["Goal_Current"]->address, control_items_["Goal_Current"]->data_length, &log);
   // if (result == false)
@@ -286,7 +287,7 @@ bool DynamixelController::initSDKHandlers(void)
 
 void DynamixelController::initPublisher()
 {
-  dynamixel_status_list_pub_ = priv_node_handle_.advertise<ankle_exoskeleton::DynamixelStatusList>("dynamixel_status", 100);
+  dynamixel_status_list_pub_ = priv_node_handle_.advertise<ankle_exoskeleton::DynamixelStatusList>("dynamixel_status", 2);
 }
 
 void DynamixelController::initSubscriber(const std::string control_mode)
@@ -667,7 +668,7 @@ int main(int argc, char **argv)
   ros::NodeHandle node_handle("");
 
   std::string port_name = "/dev/ttyUSB0";
-  uint32_t baud_rate = 2000000;
+  uint32_t baud_rate = 4000000;
   std::string control_mode = ""; //current_control, velocity_control, position_control or pwm_control
 
   if (argc < 4)
@@ -743,9 +744,10 @@ int main(int argc, char **argv)
 
   dynamixel_controller.setControlMode(control_mode);
 
+  ROS_INFO("Starting Dynamixel Controllers");
+
   ros::Timer read_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getReadPeriod()), &DynamixelController::readCallback, &dynamixel_controller);
   ros::Timer publish_timer = node_handle.createTimer(ros::Duration(dynamixel_controller.getPublishPeriod()), &DynamixelController::publishCallback, &dynamixel_controller);
-
 
   ros::spin();
 

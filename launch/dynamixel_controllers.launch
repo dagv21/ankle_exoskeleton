@@ -17,4 +17,8 @@
       dxl_read_period: 0.0025
     </rosparam>
   </node>
+  
+  <node name="dynamixel_physical_info" pkg="ankle_exoskeleton" type="dynamixel_physical_info.py" output="screen">
+    <param name="namespace" value="$(arg namespace)" />
+  </node>
 </launch>

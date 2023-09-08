@@ -1,0 +1,27 @@
+<launch>
+
+  <arg name="namespace_frontal" default="ankle_exo_frontal"/>
+  <arg name="namespace_posterior" default="ankle_exo_posterior"/>
+
+
+  <!-- Frontal Motor -->
+  <group ns="$(arg namespace_frontal)">
+    <param name="dynamixel_info"          value="$(find ankle_exoskeleton)/config/frontal.yaml"/>
+    
+    <node name="dxl_torque_controller" pkg="ankle_exoskeleton" type="torque_based_vel_controller" required="true" output="screen">
+      <param name="name_space" value="ankle_exo_frontal/dynamixel_motor"/>  
+    </node>
+
+  </group>
+
+  <!-- Posterior Motor -->
+  <group ns="$(arg namespace_posterior)">
+    
+    <param name="dynamixel_info"          value="$(find ankle_exoskeleton)/config/posterior.yaml"/>
+    
+    <node name="dxl_torque_controller" pkg="ankle_exoskeleton" type="torque_based_vel_controller" required="true" output="screen">
+      <param name="name_space" value="ankle_exo_posterior/dynamixel_motor"/>
+    </node>
+  </group>
+
+</launch>

@@ -46,6 +46,7 @@ bool DynamixelController::initWorkbench(const std::string port_name, const uint3
   {
     ROS_ERROR("%s", log);
   }
+  serial_name = port_name; // Class variable to ROS_INFO visualization in other functions
 
   return result;
 }
@@ -287,32 +288,38 @@ bool DynamixelController::initSDKHandlers(void)
 
 void DynamixelController::initPublisher()
 {
-  dynamixel_status_list_pub_ = priv_node_handle_.advertise<ankle_exoskeleton::DynamixelStatusList>("dynamixel_status", 2);
+  dynamixel_status_list_pub_ = priv_node_handle_.advertise<ankle_exoskeleton::DynamixelStatusList>("status", 2);
 }
 
 void DynamixelController::initSubscriber(const std::string control_mode)
 {
   for (auto const& dxl:dynamixel_)
   {
+    std::string topic_name = "";
+
+    if (dynamixel_.size() != 1)
+      topic_name = std::string(dxl.first.c_str()); //TODO: Test for multiple dynamixel in same yaml file
+    else
+      topic_name = priv_node_handle_.getNamespace();
 
     if (control_mode == "current_control")
     {
-      std::string topic_name = std::string(dxl.first.c_str()) + "/goal_current";
+      topic_name = topic_name + "/goal_current";
       cmd_current_sub_ = priv_node_handle_.subscribe(topic_name, 2, &DynamixelController::commandCurrentCallback, this);
     }
     else if (control_mode == "velocity_control")
     {
-      std::string topic_name = std::string(dxl.first.c_str()) + "/goal_velocity";
+      topic_name = topic_name + "/goal_velocity";
       cmd_velocity_sub_ = priv_node_handle_.subscribe(topic_name, 2, &DynamixelController::commandVelocityCallback, this);
     }
     else if (control_mode == "position_control")
     {
-      std::string topic_name = std::string(dxl.first.c_str()) + "/goal_position";
+      topic_name = topic_name + "/goal_position";
       cmd_position_sub_ = priv_node_handle_.subscribe(topic_name, 2, &DynamixelController::commandPositionCallback, this);
     }
     else if (control_mode == "pwm_control")
     {
-      std::string topic_name = std::string(dxl.first.c_str()) + "/goal_pwm";
+      topic_name = topic_name + "/goal_pwm";
       cmd_pwm_sub_ = priv_node_handle_.subscribe(topic_name, 2, &DynamixelController::commandPWMCallback, this);
     }
   }
@@ -339,8 +346,12 @@ void DynamixelController::commandVelocityCallback(const std_msgs::Int32::ConstPt
   bool result = false;
   const char* log = NULL;
 
-  int32_t goal_vel = msg->data;
-  result = dxl_wb_->itemWrite(1,"Goal_Velocity",goal_vel, &log);
+  for (auto const& dxl:dynamixel_)
+  {
+    int32_t goal_vel = msg->data;
+    uint8_t id = (uint8_t)dxl.second;
+    result = dxl_wb_->itemWrite(id,"Goal_Velocity",goal_vel, &log);
+  }
 }
 
 void DynamixelController::commandPositionCallback(const std_msgs::Int32::ConstPtr &msg)
@@ -577,16 +588,35 @@ bool DynamixelController::torqueEnableMsgCallback(ankle_exoskeleton::DynamixelCm
   std::string item_name = "Torque_Enable";
   int32_t value = req.value;
 
-  result = dxl_wb_->itemWrite(id, item_name.c_str(), value, &log);
-  if (result == false)
+  if (id == 0)
   {
-    ROS_ERROR("%s", log);
-    ROS_ERROR("Failed to write value[%d] on items[%s] to Dynamixel[ID : %d]", value, item_name.c_str(), id);
+    if (value == 1)
+    {
+      ROS_INFO("Enabling torque for connected motors of %s", serial_name.c_str());
+      enableTorque();
+    }
+    else
+    {
+      ROS_INFO("Disabling torque for connected motors of %s", serial_name.c_str());
+      disableTorque();
+    }
+    res.comm_result = true;
+    return true;
   }
+  else
+  {
+    result = dxl_wb_->itemWrite(id, item_name.c_str(), value, &log);
+    if (result == false)
+    {
+      ROS_ERROR("%s", log);
+      ROS_ERROR("Failed to write value[%d] on items[%s] to Dynamixel[ID : %d]", value, item_name.c_str(), id);
+    }
 
-  res.comm_result = result;
+    res.comm_result = result;
 
-  return true;
+    return true;
+  }
+  
 }
 
 void DynamixelController::disableTorque()
@@ -604,6 +634,25 @@ void DynamixelController::disableTorque()
     if (result == false)
     {
       ROS_ERROR("Failed to disable Torque in Motor ID : %d",id);
+    }
+  }
+}
+
+void DynamixelController::enableTorque()
+{
+  bool result = false;
+  const char* log;
+
+  for (auto const& dxl:dynamixel_)
+  {
+    uint8_t id = (uint8_t)dxl.second;
+    std::string item_name = "Torque_Enable";
+    int32_t value = 1;
+
+    result = dxl_wb_->itemWrite(id, item_name.c_str(), value, &log);
+    if (result == false)
+    {
+      ROS_ERROR("Failed to enable Torque in Motor ID : %d",id);
     }
   }
 }

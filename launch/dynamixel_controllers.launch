@@ -1,24 +1,51 @@
 <launch>
-  <arg name="usb_port"                default="/dev/ttyUSB0"/>
-  <arg name="dxl_baud_rate"           default="4000000"/>
-  <arg name="namespace"               default="ankle_exo_frontal"/>
-  <arg name="control_mode"            default="velocity_control"/>
+  <arg name="usb_port_frontal" default="/dev/ttyUSB0"/>
+  <arg name="usb_port_posterior" default="/dev/ttyUSB1"/>
 
-  <arg name="use_dynamixel_server"    default="true"/>
-  
-  <param name="dynamixel_info"          value="$(find ankle_exoskeleton)/config/basic.yaml"/>
+  <arg name="dxl_baud_rate" default="4000000"/>
 
-  <node name="$(arg namespace)" pkg="ankle_exoskeleton" type="dynamixel_controllers"
-        required="true" output="screen" args="$(arg usb_port) $(arg dxl_baud_rate) $(arg control_mode)">
+  <arg name="namespace_frontal" default="ankle_exo_frontal"/>
+  <arg name="namespace_posterior" default="ankle_exo_posterior"/>
 
-    <param name="use_dynamixel_server"       value="$(arg use_dynamixel_server)"/>
-    <rosparam>
-      publish_period: 0.0025
-      dxl_read_period: 0.0025
-    </rosparam>
-  </node>
-  
-  <node name="dynamixel_physical_info" pkg="ankle_exoskeleton" type="dynamixel_physical_info.py" output="screen">
-    <param name="namespace" value="$(arg namespace)" />
-  </node>
+  <arg name="control_mode" default="velocity_control"/>
+
+  <arg name="use_dynamixel_server" default="true"/>
+
+
+  <!-- Frontal Nodes -->
+  <group ns="$(arg namespace_frontal)">
+    <param name="dynamixel_info"          value="$(find ankle_exoskeleton)/config/frontal.yaml"/>
+
+    <node name="dynamixel_motor" pkg="ankle_exoskeleton" type="dynamixel_controllers"
+          required="true" output="screen" args="$(arg usb_port_frontal) $(arg dxl_baud_rate) $(arg control_mode)">
+
+      <param name="use_dynamixel_server" value="$(arg use_dynamixel_server)"/>
+      <rosparam>
+        publish_period: 0.0025
+        dxl_read_period: 0.0025
+      </rosparam>
+    </node>
+
+    <node name="dxl_physical_info" pkg="ankle_exoskeleton" type="dynamixel_physical_info.py" output="screen"></node>
+
+  </group>
+
+  <!-- Posterior Nodes -->
+  <group ns="$(arg namespace_posterior)">
+    <param name="dynamixel_info"          value="$(find ankle_exoskeleton)/config/posterior.yaml"/>
+
+    <node name="dynamixel_motor" pkg="ankle_exoskeleton" type="dynamixel_controllers"
+          required="true" output="screen" args="$(arg usb_port_posterior) $(arg dxl_baud_rate) $(arg control_mode)">
+
+      <param name="use_dynamixel_server" value="$(arg use_dynamixel_server)"/>
+      <param name="dynamixel_info" value="$(find ankle_exoskeleton)/config/posterior.yaml"/>
+      <rosparam>
+        publish_period: 0.0025
+        dxl_read_period: 0.0025
+      </rosparam>
+    </node>
+
+    <node name="dxl_physical_info" pkg="ankle_exoskeleton" type="dynamixel_physical_info.py" output="screen"></node>
+  </group>
+
 </launch>

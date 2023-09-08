@@ -78,6 +78,8 @@ class DynamixelController
 
   bool is_server_activated_;
 
+  std::string serial_name; 
+
 
   double read_period_;
   double pub_period_;
@@ -114,8 +116,9 @@ class DynamixelController
   bool torqueEnableMsgCallback(ankle_exoskeleton::DynamixelCmdSimplified::Request &req,
                                ankle_exoskeleton::DynamixelCmdSimplified::Response &res);  
                                
-  void disableTorque();         
-  void setControlMode(const std::string control_mode);        
+  void disableTorque();     
+  void enableTorque();    
+  void setControlMode(const std::string control_mode);       
 
 };
 

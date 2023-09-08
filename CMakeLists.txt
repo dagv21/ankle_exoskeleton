@@ -101,7 +101,7 @@ add_executable(dynamixel_controllers src/nodes/dynamixel_controllers.cpp)
 target_link_libraries(dynamixel_controllers ${catkin_LIBRARIES} dynamixel_workbench ${Eigen3_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 add_executable(torque_based_vel_controller src/nodes/torque_based_vel_controller.cpp)
-target_link_libraries(torque_based_vel_controller ${catkin_LIBRARIES})
+target_link_libraries(torque_based_vel_controller ${catkin_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
 
 ################################################################################

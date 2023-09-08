@@ -15,8 +15,8 @@ class DynamixelStatusRepublisherNode:
         if namespace:
             namespace = namespace + "/"
 
-        self.sub_topic = namespace + 'dynamixel_status'
-        self.pub_topic = namespace + 'dynamixel_status_physical'
+        self.sub_topic = namespace + 'dynamixel_motor/status'
+        self.pub_topic = namespace + 'dynamixel_motor/status_physical'
 
         self.sub = rospy.Subscriber(self.sub_topic, DynamixelStatusList, self.dynamixel_status_callback)
         self.pub = rospy.Publisher(self.pub_topic, DynamixelStatusListPhysical, queue_size=1)

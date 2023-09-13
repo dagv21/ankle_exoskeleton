@@ -52,8 +52,14 @@ private:
   
   bool is_motorState_updated_;
   bool is_desired_value_updated_;
+
+  ros::Time previous_control_time_;
+
+  // Butterworth Filter coefficients and variables
+  double a0, a1, a2, b1, b2;
+  double x1, x2, y1, y2;
   
-  ros::Time previous_time_;
+  ros::Time previous_filter_time_;
   double previous_filter_value_;
 
   std_msgs::Int32 velocity_msg_;
@@ -71,8 +77,9 @@ public:
 
   void desiredValueCallback(const std_msgs::Float32::ConstPtr& msg);
   void dynamixelStatusCallback(const ankle_exoskeleton::DynamixelStatusList::ConstPtr& msg);
-  int32_t proportionalController(int32_t error);
-  int32_t derivativeController(int32_t error);
+  
+  void butterworthInitialization();
+  double lowPassButterworthFilter(double input);
   double lowPassFilter(double input);
 
   void run();

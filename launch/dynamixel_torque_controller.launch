@@ -10,6 +10,7 @@
     
     <node name="dxl_torque_controller" pkg="ankle_exoskeleton" type="torque_based_vel_controller" required="true" output="screen">
       <param name="name_space" value="ankle_exo_frontal/dynamixel_motor"/>  
+      <param name="b_gain" value="0.012" />
     </node>
 
   </group>
@@ -21,6 +22,7 @@
     
     <node name="dxl_torque_controller" pkg="ankle_exoskeleton" type="torque_based_vel_controller" required="true" output="screen">
       <param name="name_space" value="ankle_exo_posterior/dynamixel_motor"/>
+      <param name="b_gain" value="0.013" />
     </node>
   </group>
 

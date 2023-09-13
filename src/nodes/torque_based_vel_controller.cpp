@@ -13,8 +13,11 @@ DxlTorqueBasedVelController::DxlTorqueBasedVelController()
 
   desired_value_ = 0.0; // Initial desired value 0.0 Nm
 
-  previous_time_ = ros::Time::now();
+  previous_control_time_ = ros::Time::now();
+
+  previous_filter_time_ = ros::Time::now();
   previous_filter_value_ = 0.0;
+ 
 }
 
 DxlTorqueBasedVelController::~DxlTorqueBasedVelController(){}
@@ -159,31 +162,74 @@ void DxlTorqueBasedVelController::dynamixelStatusCallback(const ankle_exoskeleto
 
         present_current_vector_.erase(present_current_vector_.begin());
         present_velocity_vector_.erase(present_velocity_vector_.begin());
+        
+        previous_filter_time_ = ros::Time::now();
       }
     }
   }
 }
+
+void DxlTorqueBasedVelController::butterworthInitialization()
+{
+  double sampleRate = 200.0; // Adjust the sample rate as needed
+  double cutoffFrequency = 0.1;
+
+  // Calculate the analog cutoff frequency
+    double analogCutoffFreq = 2.0 * M_PI * cutoffFrequency / sampleRate;
+
+    // Calculate the filter coefficients
+    double wc = tan(analogCutoffFreq / 2.0);
+    double wc2 = wc * wc;
+    double sqrt2 = sqrt(2.0);
+
+    // Coefficients for the Butterworth filter
+    a0 = wc2 + 2.0 * wc + 1.0;
+    a1 = 2.0 * (wc2 - 1.0) / a0;
+    a2 = (wc2 - 2.0 * wc + 1.0) / a0;
+    b1 = 2.0 * (wc2 - 1.0) / a0;
+    b2 = (1.0 - 2.0 * wc + wc2) / a0;
+
+    // Initialize previous input and output values to 0
+    x1 = x2 = y1 = y2 = 0.0;
+}
+
+double DxlTorqueBasedVelController::lowPassButterworthFilter(double input) 
+{
+  // Apply the Butterworth filter
+  double output = (a0 * input + a1 * x1 + a2 * x2 - b1 * y1 - b2 * y2) / a0;
+
+  // Update previous input and output values
+  x2 = x1;
+  x1 = input;
+  y2 = y1;
+  y1 = output;
+
+  return output;
+}
+
 
 double DxlTorqueBasedVelController::lowPassFilter(double input)
 {
   double cutoffFrequency = 100; // Hz
 
   ros::Time current_time = ros::Time::now();
-  double deltaTime = (current_time - previous_time_).toSec();
+  double deltaTime = (current_time - previous_filter_time_).toSec();
 
   double alpha = 1.0 / (1.0 + 2.0 * M_PI * cutoffFrequency * deltaTime);
 
   double output = alpha * input + (1.0 - alpha) * previous_filter_value_;
 
   previous_filter_value_ = output;
-  previous_time_ = current_time;
+  previous_filter_time_ = current_time;
 
   return output;
 }
 
 void DxlTorqueBasedVelController::run()
 {
+
   ros::Rate rate(600);
+  
   ROS_INFO("Starting Controller ");
   // ros::Publisher filtered_pub = nh_.advertise<std_msgs::Float32>("/filtered_data", 1);
   // ros::Publisher unfiltered_pub = nh_.advertise<std_msgs::Float32>("/unfiltered_data", 1);
@@ -193,9 +239,11 @@ void DxlTorqueBasedVelController::run()
     if (is_motorState_updated_)
     {
       // Torque Control based on Current Feedback (Low Level: Velocity Control)
-      double Bv_gain = 0.02;
+      double Bv_gain = priv_node_handle_.param<double>("b_gain",0.02);
 
+      // Motor Parameters
       double K_motor = 1.8;  // Nm/A
+
       double desired_current = (desired_value_ / K_motor); // Torque to Current
 
       double error_current = desired_current - present_current_;
@@ -211,6 +259,7 @@ void DxlTorqueBasedVelController::run()
         u_velocity = -55;
 
       // double u_velocity_filtered = lowPassFilter(u_velocity);
+      double u_velocity_filtered = lowPassButterworthFilter(u_velocity);
 
       // std_msgs::Float32 filtered_msg, unfiltered_msg;
       // filtered_msg.data = u_velocity_filtered;
@@ -218,7 +267,7 @@ void DxlTorqueBasedVelController::run()
       // filtered_pub.publish(filtered_msg);
       // unfiltered_pub.publish(unfiltered_msg);
 
-      int32_t velocity_control = u_velocity/0.229; //u_velocity_filtered/0.229;
+      int32_t velocity_control = u_velocity_filtered/0.229; //u_velocity_filtered/0.229;
       // std::cout << "Error: " << error_current << "\tDesired Motor Velocity: " << u_velocity << "rpm" << "\tRegister Velocity: " << velocity_control <<'\n';
 
       velocity_msg_.data = velocity_control;
@@ -226,6 +275,18 @@ void DxlTorqueBasedVelController::run()
 
       is_motorState_updated_ = false;
     }
+    else
+    {
+      ros::Time current_time = ros::Time::now();
+      double deltaTime = (current_time - previous_filter_time_).toSec();
+      if (deltaTime > 0.5)
+      {
+        ROS_WARN("Motor ID: %f is not publishing data", motor_id_);
+        // setMotorTorque(0);
+      }
+    }
+
+
     ros::spinOnce();  // Handle callbacks
     rate.sleep();  // Maintain the desired loop rate
   }
@@ -269,6 +330,7 @@ int main(int argc, char** argv)
 
   signal(SIGINT, mySigintHandler); //Function to execute during Shutdown
 
+  torque_controller.butterworthInitialization();
   torque_controller.run();
 
   return 0;

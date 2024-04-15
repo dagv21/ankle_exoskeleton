@@ -43,6 +43,7 @@ endif(NOT ${YAML_CPP_VERSION} VERSION_LESS "0.5")
    DynamixelStatusList.msg
    DynamixelStatusPhysical.msg
    DynamixelStatusListPhysical.msg
+   IMUData.msg
  )
 
 ## Generate services in the 'srv' folder

@@ -1,0 +1,4 @@
+<launch>
+  <rosparam file="$(find ankle_exoskeleton)/config/online_detection.yaml" />
+  <node pkg="ankle_exoskeleton" name="real_time_gait_phase_det" type="real_time_gait_phase_det.py" output="screen"/>
+</launch>

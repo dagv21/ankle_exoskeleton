@@ -1,0 +1,5 @@
+<launch>
+  <arg name="time"/>
+  <node pkg="ankle_exoskeleton" name="imu_foot" type="imu_data_acquisition.py" args="-b 1 -a 0x29 -n /imu_data/foot"/>
+  <node pkg="ankle_exoskeleton" name="imu_shank" type="imu_data_acquisition.py" args="-b 1 -a 0x28 -n /imu_data/shank"/>
+</launch>

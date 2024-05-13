@@ -1,11 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import rospy
 from ankle_exoskeleton.msg import IMUData
 from std_msgs.msg import Bool
 import smbus
 import time
+import getopt, sys
 import ctypes
-from scipy.signal import butter,lfilter
 import numpy as np
 
 def enum(*args):
@@ -23,22 +23,35 @@ class IMU_BNO055:
     IMU 9DOF Sensor Fusion
     """
 
-    def __init__(self, bus = 1, address = 0x28):
+    def __init__(self, bus = 3, address = 0x28, topic_name = '/imu_data'):
         self.bus = smbus.SMBus(bus)    # /dev/i2c-1
         self.address = address
+        self.topic_name = topic_name
         self.start_time = time.time()
         # self.gyro = {'x': 0, 'y': [], 'z': 0}
         # self.accel = {'x': 0, 'y': [], 'z': 0}
         self.gyro = {'x': 0, 'y': 0, 'z': 0}
         self.accel = {'x': 0, 'y': 0, 'z': 0}
         self.quat = {'x': 0, 'y': 0, 'z': 0, 'w': 0}
-        # # Butterworth low-pass filter
-        # self.cutoff = 5    # Hz. Filter cutoff frequency
-        # self.fs = 100      # Fundamental frequency
-        # self.order = 4     # Filter order
-        # self.find_filter_params()
-        # # Calibration stage
-        # self.cal_angle = 0                   # Initial calibration angle
+        """Butterworth low-pass filter (Cutoff frequency: 15 Hz)"""
+        self.gyro_filter_states = np.empty(2)
+        self.accel_filter_states = np.empty(2)
+        '''Numerator'''
+        self.gyro_a0_ = 0.1176
+        self.gyro_a1_ = 0.2352
+        self.gyro_a2_ = 0.1176
+        self.accel_a0_ = 0.1398
+        self.accel_a1_ = 0.2796
+        self.accel_a2_ = 0.1398
+        '''Denominator'''
+        self.gyro_b0_ = 1
+        self.gyro_b1_ = -0.8239
+        self.gyro_b2_ = 0.2942
+        self.accel_b0_ = 1
+        self.accel_b1_ = -0.7006
+        self.accel_b2_ = 0.2597
+        """Calibration stage"""
+        self.cal_angle = 0                   # Initial calibration angle
         GPwrMode = self.GPwrMode.NormalG     #  Gyro power mode
         Gscale = self.Gscale.GFS_250DPS   #  Gyro full scale
         # Godr = GODR_250Hz     #  Gyro sample rate
@@ -54,6 +67,8 @@ class IMU_BNO055:
         PWRMode = self.PWRMode.Normalpwr     #  Select BNO055 power mode
         OPRMode = self.OPRMode.NDOF        #
         #  Select BNO055 config mode
+        # while True:
+        #     try:
         self.write_byte(self.BNO055_OPR_MODE, self.OPRMode.CONFIGMODE )
         time.sleep(0.025)
         #  Select page 1 to configure sensors
@@ -76,51 +91,60 @@ class IMU_BNO055:
         #  Select BNO055 system operation mode
         self.write_byte(self.BNO055_OPR_MODE, OPRMode )
         time.sleep(0.025)
+                # break
 
         # ROS Node Initialization
-        self.node_name = 'imu_data_acquisition'
+        if self.topic_name == '/imu_data':
+            self.node_name = 'imu_data_acquisition'
+        else:
+            name = self.topic_name.replace('/','').replace('imu_data','')
+            self.node_name = 'imu_data_acquisition_' + name
         rospy.init_node(self.node_name, anonymous = True)
-        self.pub = rospy.Publisher("/imu_data", IMUData, queue_size = 1, latch = False)
-        rospy.Subscriber("/kill_gait_assistance", Bool, self.updateFlagImuAcquisition)
+        self.pub = rospy.Publisher(self.topic_name, IMUData, queue_size = 1, latch = False)
+        rospy.Subscriber('kill_imu_acquisition', Bool, self.updateFlagImuAcquisition)
         self.kill_flag = False
 
     def updateFlagImuAcquisition(self,flag_signal):
         self.kill_flag = flag_signal.data
-        if self.kill_flag:
-            rospy.logwarn("Killing IMU node due to external source")
 
-    # def find_filter_params(self):
-    #     """Find the necessary parameters for the Butterworth low-pass filter.
-    #     No return value, it modifies global variables though.
-    #     """
-    #     nyq = 0.5 * self.fs
-    #     normal_cutoff = self.cutoff / nyq
-    #     self.b, self.a = butter(self.order, normal_cutoff, btype='low', analog=False)
+    """2nd order Butterworth low-pass filter (cutoff frequency: 15 Hz)"""
+    def low_pass_filter_15hz(self, in_signal):
+        tmp = (in_signal - self.gyro_b1_ * self.gyro_filter_states[0]) - self.gyro_b2_ * self.gyro_filter_states[1];
+        filt_signal = (self.gyro_a0_*tmp + self.gyro_a1_*self.gyro_filter_states[0]) + self.gyro_a2_*self.gyro_filter_states[1];
 
-    # def butter_lowpass_filter(self,data):
-    #     """Apply the Butterworth low-pass filter for the given data and return
-    #     the filtered data
-    #     """
-    #     return lfilter(self.b, self.a, data)
+        self.gyro_filter_states[1] = self.gyro_filter_states[0];
+        self.gyro_filter_states[0] = tmp;
 
-    # def read_initial_angle(self):
+        return filt_signal
+
+    """2nd order Butterworth low-pass filter (cutoff frequency: 17 Hz)"""
+    def low_pass_filter_17hz(self, in_signal):
+        tmp = (in_signal - self.accel_b1_ * self.accel_filter_states[0]) - self.accel_b2_ * self.accel_filter_states[1];
+        filt_signal = (self.accel_a0_*tmp + self.accel_a1_*self.accel_filter_states[0]) + self.accel_a2_*self.accel_filter_states[1];
+
+        self.accel_filter_states[1] = self.accel_filter_states[0];
+        self.accel_filter_states[0] = tmp;
+
+        return filt_signal
+
+    def read_initial_angle(self):
     #     """Read initial calibration pitch angle.
     #     No return value, it modifies global variables though.
     #     """
-    #     angles = []
-    #     diff = 2
-    #     print("Stand still 5 seconds to measure initial calibration angle...")
-    #     time.sleep(5)
-    #
-    #     while diff <= 2 and len(angles) < 500:
-    #         self.read_eul()
-    #         # Corresponding angle is pitch euler angle from IMU
-    #         angles.append(self.euler['y'])
-    #         if len(angles) > 500: del angles[0]
-    #         diff = np.std(angles)
-    #
-    #     self.cal_angle = np.mean(angles)
-    #     print("Initial calibration angle: {} degrees".format(self.cal_angle))
+        angles = []
+        diff = 2
+        print("Stand still 5 seconds to measure initial calibration angle...")
+        time.sleep(5)
+
+        while diff <= 2 and len(angles) < 500:
+            self.read_eul()
+            # Corresponding angle is pitch euler angle from IMU
+            angles.append(self.euler['y'])
+            if len(angles) > 500: del angles[0]
+            diff = np.std(angles)
+
+        self.cal_angle = np.mean(angles)
+        print("Initial calibration angle: {} degrees".format(self.cal_angle))
 
     def read_data(self, subAddress):
         """Read count number of 16-bit signed values starting from the provided
@@ -171,6 +195,7 @@ class IMU_BNO055:
         x, y, z = self.read_data(self.BNO055_ACC_DATA_X_LSB)
         self.accel['x'] = x/100.0
         # self.accel['y'].append(y)
+        #self.accel['y'] = self.low_pass_filter_17hz(y/100.0)
         self.accel['y'] = y/100.0
         self.accel['z'] = z/100.0
         # One must have at least 100 samples to start filtering data
@@ -187,6 +212,7 @@ class IMU_BNO055:
         x, y, z = self.read_data(self.BNO055_GYR_DATA_X_LSB)
         self.gyro['x'] = x/16.0
         # self.gyro['y'].append(y)
+        #self.gyro['y'] = self.low_pass_filter_15hz(y/16.0)
         self.gyro['y'] = y/16.0
         self.gyro['z'] = z/16.0
         # One must have at least 100 samples to start filtering data
@@ -452,7 +478,31 @@ class IMU_BNO055:
     SBy = enum('t_00_5ms', 't_62_5ms', 't_125ms', 't_250ms', 't_500ms', 't_1000ms', 't_2000ms', 't_4000ms',)
 
 def main():
-    sensor = IMU_BNO055(bus=1, address=0x28)
+    # Get external parameters
+    bus = 1
+    device_address = 0x29
+    topic_name = '/imu_data'
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "ha:b:n:", [])
+        for opt, arg in opts:
+            if opt == "-h":
+                print("Usage: ")
+                print("\trosrun t_flex imu_data_acquisition.py -a <device address> -b <i2c bus> -n \'imu_name\'")
+                sys.exit()
+            elif opt == "-a":
+                device_address = int(arg.split("0x")[1], 16)
+            elif opt == "-b":
+                bus = int(arg)
+            elif opt == "-n":
+                topic_name = str(arg)
+    except getopt.GetoptError as e:
+        pass
+
+    print("Parameters for IMU\nBus: " +str(bus) + "\nAddress: " + str(device_address) + "\nTopic name: " + topic_name)
+
+    #sensor = IMU_BNO055(bus=1, address=0x29)
+    sensor = IMU_BNO055(bus=bus, address=device_address,topic_name=topic_name)
 
     # Parameters of ROS message
     msg = IMUData()
@@ -505,52 +555,56 @@ def main():
 
     while not rospy.is_shutdown():
         if not sensor.kill_flag:
-            # Read the Euler angles for heading, roll, pitch (all in degrees).
-            # sensor.read_eul()
-            # Read the calibration status, 0=uncalibrated and 3=fully calibrated.
-            # sys, gyro, accel, mag = sensor.read_calib()
-            # Other values you can optionally read:
-            # Orientation as a quaternion:
-            sensor.read_quat()
-            # Sensor temperature in degrees Celsius:
-            #temp_c = sensor.read_temper()
-            # Magnetometer data (in micro-Teslas):
-            #x,y,z = sensor.read_mag()
-            # Gyroscope data (in degrees per second):
-            sensor.read_gyro()
-            # Accelerometer data (in meters per second squared):
-            sensor.read_accel()
-            # Linear acceleration data (i.e. acceleration from movement, not gravity--
-            # returned in meters per second squared):
-            #x,y,z = sensor.read_lin_accel()
-            # Gravity acceleration data (i.e. acceleration just from gravity--returned
-            # in meters per second squared):
-            #x,y,z = sensor.read_grav()
-            # Print everything out.
-            # print('time_stamp={}\t gyro_X={:.2f} gyro_Y={:.2f} gyro_Z={:.2f}\n\t accel_X={:.2f} accel_Y={:.2f} accel_Z={:.2f}'.format(
-            #     rospy.get_rostime().nsecs, sensor.gyro['x'], sensor.gyro['y'], sensor.gyro['z'], sensor.accel['x'], sensor.accel['y'], sensor.accel['z']))
-            # time.sleep(1)
+            try:
+                # Read the Euler angles for heading, roll, pitch (all in degrees).
+                sensor.read_eul()
+                # Read the calibration status, 0=uncalibrated and 3=fully calibrated.
+                # sys, gyro, accel, mag = sensor.read_calib()
+                # Other values you can optionally read:
+                # Orientation as a quaternion:
+                sensor.read_quat()
+                # Sensor temperature in degrees Celsius:
+                #temp_c = sensor.read_temper()
+                # Magnetometer data (in micro-Teslas):
+                #x,y,z = sensor.read_mag()
+                # Gyroscope data (in degrees per second):
+                sensor.read_gyro()
+                # Accelerometer data (in meters per second squared):
+                sensor.read_accel()
+                # Linear acceleration data (i.e. acceleration from movement, not gravity--
+                # returned in meters per second squared):
+                #x,y,z = sensor.read_lin_accel()
+                # Gravity acceleration data (i.e. acceleration just from gravity--returned
+                # in meters per second squared):
+                #x,y,z = sensor.read_grav()
+                # Print everything out.
+                # print('time_stamp={}\t gyro_X={:.2f} gyro_Y={:.2f} gyro_Z={:.2f}\n\t accel_X={:.2f} accel_Y={:.2f} accel_Z={:.2f}'.format(
+                #     rospy.get_rostime().nsecs, sensor.gyro['x'], sensor.gyro['y'], sensor.gyro['z'], sensor.accel['x'], sensor.accel['y'], sensor.accel['z']))
+                # time.sleep(1)
 
-            # # Computing angular difference in respect of initial calibration angle (pitch frame)
-            # knee_angle = abs(sensor.cal_angle - sensor.euler['y'])
+                # # Computing angular difference in respect of initial calibration angle (pitch frame)
+                # knee_angle = abs(sensor.cal_angle - sensor.euler['y'])
+                angle = sensor.euler['y'] - sensor.cal_angle
 
-            # Transmission of ROS message
-            msg.header.frame_id = "/" + sensor.node_name
-            msg.time_stamp = int(round((time.time() - start_time)*1000.0))
-            msg.gyro_x = sensor.gyro['x']
-            # msg.gyro_y = sensor.gyro['y'][-1]
-            msg.gyro_y = sensor.gyro['y']
-            msg.gyro_z = sensor.gyro['z']
-            msg.accel_x = sensor.accel['x']
-            # msg.accel_y = sensor.accel['y'][-1]
-            msg.accel_y = sensor.accel['y']
-            msg.accel_z = sensor.accel['z']
-            msg.quat_x = sensor.quat['x']
-            msg.quat_y = sensor.quat['y']
-            msg.quat_z = sensor.quat['z']
-            msg.quat_w = sensor.quat['w']
-            # msg.angle = knee_angle
-            sensor.pub.publish(msg)
+                # Transmission of ROS message
+                msg.header.frame_id = "/" + sensor.node_name
+                msg.time_stamp = int(round((time.time() - start_time)*1000.0))
+                msg.gyro_x = sensor.gyro['x']
+                # msg.gyro_y = sensor.gyro['y'][-1]
+                msg.gyro_y = sensor.gyro['y']
+                msg.gyro_z = sensor.gyro['z']
+                msg.accel_x = sensor.accel['x']
+                # msg.accel_y = sensor.accel['y'][-1]
+                msg.accel_y = sensor.accel['y']
+                msg.accel_z = sensor.accel['z']
+                msg.quat_x = sensor.quat['x']
+                msg.quat_y = sensor.quat['y']
+                msg.quat_z = sensor.quat['z']
+                msg.quat_w = sensor.quat['w']
+                #msg.angle = angle
+                sensor.pub.publish(msg)
+            except:
+                rospy.logwarn("Lost connection!")
             rate.sleep()
         else:
             break

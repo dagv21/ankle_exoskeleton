@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 import rospy
 import rospkg
 import pickle
 import numpy as np
 import sys, os
-from sklearn.preprocessing import normalize
+#from sklearn.preprocessing import normalize
 from pomegranate import *
 from pomegranate.hmm import log as ln
 from pomegranate import HiddenMarkovModel as HMM
@@ -12,7 +13,7 @@ from pomegranate import MultivariateGaussianDistribution as MGD
 from scipy import io as scio
 from scipy import linalg
 from std_msgs.msg import Int8
-from exo_msgs.msg import IMUData
+from ankle_exoskeleton.msg import IMUData
 import csv
 
 """Supported decoder algorithms"""
@@ -22,8 +23,8 @@ DECODER_ALGORITHMS = frozenset(("fov", "bvsw"))   # FOV: Forward-only viterbi, B
 class RealTimeHMM():
     def __init__(self, n_trials=3, leave_one_out=1):
         """Variable initialization"""
-        self.patient = rospy.get_param("gait_phase_det/patient")
-        self.verbose = rospy.get_param("gait_phase_det/verbose")
+        self.patient = rospy.get_param("patient")
+        self.verbose = rospy.get_param("verbose")
         self.n_trials = n_trials
         self.n_features = 2      # Raw data and 1st-derivative
         self.leave_one_out = leave_one_out
@@ -36,7 +37,7 @@ class RealTimeHMM():
         self.labels = [[] for x in range(self.n_trials)]  # Reference labels from local data
         self.first_eval = True
         self.model_loaded = False
-        algorithm = rospy.get_param("gait_phase_det/algorithm")
+        algorithm = rospy.get_param("algorithm")
         rospy.loginfo('Decoding algorithm: {}'.format(algorithm))
         if algorithm not in DECODER_ALGORITHMS:
             raise ValueError("Unknown decoder {!r}".format(algorithm))
@@ -91,7 +92,7 @@ class RealTimeHMM():
         """ROS init"""
         rospy.init_node('real_time_HMM', anonymous=True)
         rospack = rospkg.RosPack()
-        self.packpath = rospack.get_path('exo_gait_phase_det')
+        self.packpath = rospack.get_path('ankle_exoskeleton')
         self.init_subs()
         self.init_pubs()
         """HMM-training (if no model exists)"""
@@ -136,7 +137,7 @@ class RealTimeHMM():
                 rospy.logwarn("Not able to load distributions: " + exc)
             """Transition and initial (log) probabilities matrices upon training"""
             trans_mat = self.model.dense_transition_matrix()[:self.n_states,:self.n_states]
-            if self.verbose: print '**TRANSITION MATRIX (post-training)**\n'+ str(trans_mat)
+            if self.verbose: print ('**TRANSITION MATRIX (post-training)**\n'+ str(trans_mat))
             for i in range(self.n_states):
                 self.log_startprob.append(ln(self.start_prob[i]))
                 for j in range(self.n_states):
@@ -149,7 +150,7 @@ class RealTimeHMM():
 
     """Init ROS subcribers"""
     def init_subs(self):
-        rospy.Subscriber('/imu_data', IMUData, self.imu_callback)
+        rospy.Subscriber('/imu_data/foot', IMUData, self.imu_callback)
 
     """Callback function upon arrival of IMU data for forward-only decoding"""
     def _fov_callback(self, data):
@@ -159,13 +160,15 @@ class RealTimeHMM():
 
         if self.rec_data >= self.win_size and self.model_loaded:      # At least one previous and one subsequent data should have been received
             """Extract feature and append it to test dataset"""
-            fder = (self.raw_win[self.win_size/2 + 1] - self.raw_win[self.win_size/2 - 1])/2
+            #fder = (self.raw_win[self.win_size/2 + 1] - self.raw_win[self.win_size/2 - 1])/2
+            fder = (self.raw_win[int(self.win_size/2) + 1] - self.raw_win[int(self.win_size/2) - 1])/2
+
             # peak_detector = self.raw_win[self.win_size/2]/max(self.raw_win)
             # self.fder_win.append(fder)
             # self.fder_win.pop(0)
             # sder = (self.fder_win[2] - self.fder_win[0])/2
             # test_set = [self.raw_win[self.win_size/2], self.raw_win[self.win_size/2 - 2], self.raw_win[self.win_size/2 - 1], self.raw_win[self.win_size/2 + 1], self.raw_win[self.win_size/2 + 2]]         # Temporally proximal features
-            test_set = [self.raw_win[self.win_size/2], fder]         # Temporally proximal features
+            test_set = [self.raw_win[int(self.win_size/2)], fder]         # Temporally proximal features
             '''Forward-only decoding approach'''
             state = self.decode(test_set)
             # rospy.loginfo("Decoded phase: {}".format(state))
@@ -401,7 +404,7 @@ class RealTimeHMM():
         rospy.logwarn("Training initialized model...")
         self.model.fit(self.train_data, algorithm='baum-welch', verbose=self.verbose)
         self.model.freeze_distributions()     # Freeze all model distributions, preventing update from ocurring
-        if self.verbose: print "**HMM model:\n{}**".format(self.model)
+        if self.verbose: print ("**HMM model:\n{}**".format(self.model))
 
         """Save Multivariate Gaussian Distributions into yaml file"""
         for st in self.model.states:

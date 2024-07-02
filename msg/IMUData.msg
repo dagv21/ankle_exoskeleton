@@ -11,3 +11,10 @@ float64 gyro_z
 float64 accel_x
 float64 accel_y
 float64 accel_z
+float64 euler_x
+float64 euler_y
+float64 euler_z
+float64 gravity_x
+float64 gravity_y
+float64 gravity_z
+

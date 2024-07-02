@@ -1,5 +1,13 @@
 <launch>
-  <arg name="time"/>
-  <node pkg="ankle_exoskeleton" name="imu_foot" type="imu_data_acquisition.py" args="-b 1 -a 0x29 -n /imu_data/foot"/>
-  <node pkg="ankle_exoskeleton" name="imu_shank" type="imu_data_acquisition.py" args="-b 1 -a 0x28 -n /imu_data/shank"/>
+    <group ns="foot" clear_params="true">
+        <param name="port_name" value="/dev/ttyUSB0"/>
+        <param name="node_name" value="imu_data"/>
+        <node pkg="ankle_exoskeleton" name="imu_data" type="imu_data_acq.py" output="screen"/>
+    </group>
+    <group ns="shank" clear_params="true">
+        <param name="port_name" value="/dev/ttyUSB2"/>
+        <param name="node_name" value="imu_data"/>
+        <node pkg="ankle_exoskeleton" name="imu_data" type="imu_data_acq.py" output="screen"/>
+    </group>
 </launch>
+

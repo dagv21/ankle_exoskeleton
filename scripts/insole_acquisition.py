@@ -3,7 +3,8 @@
 import rospy
 from std_msgs.msg import Int32MultiArray
 import os
-from serial import Serial
+#from serial import Serial
+import serial
 
 class ArduinoNode:
     def __init__(self):

@@ -12,7 +12,7 @@ class ArduinoNode:
         rospy.init_node('insole_acquisition', anonymous=True)
 
         # Ros Params
-        usb_port = rospy.get_param('~usb_port', 'ttyUSB0')
+        usb_port = rospy.get_param('~usb_port', 'ttyUSB1')
         baudrate = rospy.get_param('~baudrate', 250000)
 
         os.system("sudo chmod 777 /dev/{}".format(usb_port))

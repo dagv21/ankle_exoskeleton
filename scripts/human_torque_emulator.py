@@ -7,7 +7,7 @@ import sys
 
 def publish_desired_values():
     rospy.init_node('desired_values_publisher')
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(50)
 
     desired_values = [-0.79, -0.79, -2.78, -5.16, -6.75, -6.35, -5.76, -4.37, -3.77, -2.38,
                       -1.06, 0.33, 1.92, 3.31, 4.9, 6.69, 8.47, 10.46, 12.64, 14.03, 15.22,
@@ -23,7 +23,11 @@ def publish_desired_values():
                       -3.24, -2.05, -1.65, -1.46, -1.85, -1.85, -2.45, -2.65, -2.65, -2.25,
                       -1.85, -1.06, -0.26, 0.53, 0.73, 0.93, 0.73, 0.13]
 
-    pub = rospy.Publisher('/ankle_exo_frontal/motor/desired_value', Float32, queue_size=10)
+    # Normalize the desired values to have a maximum value of 5
+    max_value = max(abs(val) for val in desired_values)
+    normalized_values = [5 * val / max_value for val in desired_values]
+
+    pub = rospy.Publisher('/ankle_joint/desired_torque', Float32, queue_size=10)
 
     def signal_handler(sig, frame):
         rospy.loginfo("Ctrl+C detected. Stopping the node...")
@@ -32,13 +36,8 @@ def publish_desired_values():
     signal.signal(signal.SIGINT, signal_handler)
 
     while not rospy.is_shutdown():
-        for value in desired_values:
-            if value < 0:
-                if abs(value) > 2:
-                    value = -2
-                pub.publish(value)
-            else:
-                pub.publish(0)
+        for value in normalized_values:
+            pub.publish(value)
             rate.sleep()
 
 if __name__ == '__main__':

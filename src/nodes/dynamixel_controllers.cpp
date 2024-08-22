@@ -616,7 +616,7 @@ bool DynamixelController::torqueEnableMsgCallback(ankle_exoskeleton::DynamixelCm
 
     return true;
   }
-  
+
 }
 
 void DynamixelController::disableTorque()

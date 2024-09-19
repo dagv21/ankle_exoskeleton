@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import rospy
-import serial
+import serial, os
 from ankle_exoskeleton.msg import IMUData
 
 class IMUBNOArduinoNode:
@@ -12,6 +12,7 @@ class IMUBNOArduinoNode:
         self.serial_port = None
         self.calibrated = False
         self.port = port
+        os.system("sudo chmod 777 " + self.port)
         self.calibrate_imu()
 
     def calibrate_imu(self):
@@ -96,7 +97,7 @@ class IMUBNOArduinoNode:
 
 if __name__ == '__main__':
     try:
-        port = rospy.get_param('port_name', '/dev/ttyUSB2')
+        port = rospy.get_param('port_name', '/dev/ttyUSB3')
         imu_node = IMUBNOArduinoNode(port)
         rate = rospy.Rate(500)
         while not rospy.is_shutdown():

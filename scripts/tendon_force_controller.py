@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import rospy
-from std_msgs.msg import Float32MultiArray, Int32
+from std_msgs.msg import Float32MultiArray, Int32, Int8
 from ankle_exoskeleton.srv import DynamixelCmdSimplified, DynamixelCmdSimplifiedRequest
 import time
 
@@ -16,8 +16,9 @@ class TendonForceController:
         self.frontal_velocity_pub = rospy.Publisher('/ankle_exo/frontal/dynamixel_motor/goal_velocity', Int32, queue_size=2)
         self.posterior_velocity_pub = rospy.Publisher('/ankle_exo/posterior/dynamixel_motor/goal_velocity', Int32, queue_size=2)
 
-        # Subscribers for tendon forces
+        # Subscriber for tendons force and switching commands
         rospy.Subscriber('ankle_exo/tendons_force', Float32MultiArray, self.tendons_force_callback)
+        rospy.Subscriber('swtiching_command', Int8, self.switching_command_callback)
 
         # RPM limits
         self.max_rpm = 52.0
@@ -38,6 +39,9 @@ class TendonForceController:
         self.prev_frontal_error = 0.0
         self.prev_posterior_error = 0.0
         self.prev_time = time.time()
+
+        #Switch Initialization
+        self.sw_cmd = 0 #Angle Error positive or zero
 
         # ROS rate
         self.rate = rospy.Rate(100)  # 100 Hz
@@ -74,6 +78,9 @@ class TendonForceController:
     def tendons_force_callback(self, msg):
         self.frontal_force = msg.data[0]
         self.posterior_force = msg.data[1]
+    
+    def switching_command_callback(self, msg):
+        self.sw_cmd = msg.data
 
     def calculate_velocity(self, current_force, prev_error, desired_force, id_motor):
         # Get the current time and compute the time difference
@@ -125,8 +132,18 @@ class TendonForceController:
         while not rospy.is_shutdown():
             if ((self.frontal_force != None) and (self.posterior_force != None)):
                 # Tendon Force Calculator
-                self.desired_frontal_force = self.desired_tendon_force  # Newtons lower distance
+                self.desired_frontal_force = self.desired_tendon_force  # Newtons larger distance
                 self.desired_posterior_force = self.desired_frontal_force*self.frontal_distance/self.posterior_distance # Newtons
+
+                #Switch: Saturation of Tendon Force from the Angle Error (3 cases)
+                if self.sw_cmd == 1:    #Angle error is positive 
+                    if self.frontal_force > self.desired_frontal_force:
+                        self.frontal_force = self.desired_frontal_force
+                elif self.sw_cmd == 2:  #Angle error is negative
+                    if self.posterior_force > self.desired_posterior_force:
+                        self.posterior_force = self.desired_posterior_force  
+                else:                   #Angle error is zero
+                    pass
 
                 frontal_velocity, self.prev_frontal_error = self.calculate_velocity(self.frontal_force, self.prev_frontal_error, self.desired_frontal_force,1)
                 posterior_velocity, self.prev_posterior_error = self.calculate_velocity(self.posterior_force, self.prev_posterior_error, self.desired_posterior_force,2)

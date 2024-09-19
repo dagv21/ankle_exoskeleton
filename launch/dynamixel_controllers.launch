@@ -4,8 +4,8 @@
 
   <arg name="dxl_baud_rate" default="4000000"/>
 
-  <arg name="namespace_frontal" default="ankle_exo_frontal"/>
-  <arg name="namespace_posterior" default="ankle_exo_posterior"/>
+  <arg name="namespace_frontal" default="ankle_exo/frontal"/>
+  <arg name="namespace_posterior" default="ankle_exo/posterior"/>
 
   <arg name="control_mode" default="velocity_control"/>
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import rospy
-from std_msgs.msg import Float32
-import serial
+from std_msgs.msg import Float32, Float32MultiArray
+import serial, os
 
 class AnkleExoskeletonNode:
     def __init__(self):
@@ -10,15 +10,13 @@ class AnkleExoskeletonNode:
         rospy.init_node('loadcells_acquisition_node', anonymous=True)
 
         # Publisher for tendon force and joint torque
-        self.frontal_force_pub = rospy.Publisher('ankle_exo_frontal/tendon_force', Float32, queue_size=2)
-        self.frontal_torque_pub = rospy.Publisher('ankle_exo_frontal/joint_torque', Float32, queue_size=2)
-        self.posterior_force_pub = rospy.Publisher('ankle_exo_posterior/tendon_force', Float32, queue_size=2)
-        self.posterior_torque_pub = rospy.Publisher('ankle_exo_posterior/joint_torque', Float32, queue_size=2)
-        self.joint_torque_pub = rospy.Publisher('ankle_joint/torque', Float32, queue_size=2)
+        self.tendons_force = rospy.Publisher('ankle_exo/tendons_force', Float32MultiArray, queue_size=2)
+        self.joint_torque_pub = rospy.Publisher('ankle_joint/net_torque', Float32, queue_size=2)
 
         # Serial port configuration
-        self.serial_port = '/dev/ttyUSB2'
+        self.serial_port = "/dev/ttyUSB2"
         self.baud_rate = 250000
+        os.system("sudo chmod 777 " + self.serial_port)
         self.ser = serial.Serial(self.serial_port, self.baud_rate, timeout=1)
 
         # Distances in meters
@@ -26,35 +24,37 @@ class AnkleExoskeletonNode:
         self.posterior_distance = 0.15  # 15 cm
 
         # ROS rate
-        self.rate = rospy.Rate(100)  # 10 Hz
+        self.rate = rospy.Rate(100)  # 100 Hz
 
     def calculate_torque(self, force, distance):
         return force * distance
 
     def run(self):
-        rospy.loginfo("Publishing Force and Torque Data")
+        rospy.loginfo("Publishing Tendons Force and Joint Torque Data")
         while not rospy.is_shutdown():
             try:
                 if self.ser.in_waiting > 0:
                     line = self.ser.readline().decode('utf-8').strip()
                     forces = line.split(',')
                     if len(forces) == 2:
-                        #TODO Fix negative force values
-                        frontal_force = float(forces[0])
-                        posterior_force = float(forces[1])
+                        frontal_force = round(float(forces[0]))
+                        posterior_force = round(float(forces[1]))
+
+                        if frontal_force < 0:
+                            frontal_force = 0
+                        if posterior_force < 0:
+                            posterior_force = 0
 
                         # Calculate torques
                         frontal_torque = self.calculate_torque(frontal_force, self.frontal_distance)
                         posterior_torque = self.calculate_torque(posterior_force, self.posterior_distance)
 
                         # Publish tendon forces
-                        self.frontal_force_pub.publish(frontal_force)
-                        self.posterior_force_pub.publish(posterior_force)
+                        msg = Float32MultiArray()
+                        msg.data = [frontal_force, posterior_force]
+                        self.tendons_force.publish(msg)
 
-                        # Publish joint torques
-                        self.frontal_torque_pub.publish(frontal_torque)
-                        self.posterior_torque_pub.publish(posterior_torque)
-
+                        # Publish joint torque
                         self.joint_torque_pub.publish(frontal_torque-posterior_torque)
 
             except serial.SerialException as e:

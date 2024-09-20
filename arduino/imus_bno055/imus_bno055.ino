@@ -6,10 +6,8 @@
 /* 
    Connections
    ===========
-   Connect SCL to analog 5
-   Connect SDA to analog 4
-   Connect VDD to 3.3-5V DC
-   Connect GROUND to common ground
+   Check the I2C ports and adjust Wire
+   Library Adafruit_BNO055 version 1.6.3 (write8 must be changed in the .h file from private to public)
 */
 
 // Define configuration registers
@@ -18,7 +16,6 @@
 #define BNO055_MAG_CONFIG 0x09
 #define BNO055_GYRO_CONFIG_0 0x0A
 #define BNO055_GYRO_CONFIG_1 0x0B
-
 
 
 /* Set the delay between fresh samples */

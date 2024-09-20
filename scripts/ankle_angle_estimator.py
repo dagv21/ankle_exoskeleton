@@ -14,7 +14,7 @@ class AnkleAngleEstimator:
         self.foot_imu_sub = rospy.Subscriber('/foot/imu_data', IMUData, self.foot_imu_callback)
         self.shank_imu_sub = rospy.Subscriber('/shank/imu_data', IMUData, self.shank_imu_callback)
 
-        self.ankle_angle_pub = rospy.Publisher('/ankle_joint/angle', Float64, queue_size=10)
+        self.ankle_angle_pub = rospy.Publisher('/ankle_joint/angle', Float64, queue_size=2)
 
         self.foot_imu_data = None
         self.shank_imu_data = None

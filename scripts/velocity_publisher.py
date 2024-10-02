@@ -3,6 +3,8 @@
 import rospy
 from std_msgs.msg import Int32
 from ankle_exoskeleton.srv import DynamixelCmdSimplified, DynamixelCmdSimplifiedRequest
+from ankle_exoskeleton.msg import DynamixelStatusList
+import numpy as np
 
 class VelocityPublisher:
     def __init__(self):
@@ -16,8 +18,13 @@ class VelocityPublisher:
         # Variables to store values from both loops
         self.frontal_force_loop = 0
         self.frontal_angle_loop = 0
+        self.frontal_position = None
+        self.initial_frontal_position = None
+
         self.posterior_force_loop = 0
         self.posterior_angle_loop = 0
+        self.posterior_position = None
+        self.initial_posterior_position = None
 
         # Maximum and minimum velocity limits
         self.max_velocity = 240
@@ -26,8 +33,11 @@ class VelocityPublisher:
         # Subscribers for the force and angle loop velocities
         rospy.Subscriber('/ankle_exo/frontal/dynamixel_motor/goal_velocity_forceLoop', Int32, self.frontal_force_loop_callback)
         rospy.Subscriber('/ankle_exo/frontal/dynamixel_motor/goal_velocity_angleLoop', Int32, self.frontal_angle_loop_callback)
+        rospy.Subscriber('/ankle_exo/frontal/dynamixel_motor/status', DynamixelStatusList, self.frontal_status_callback)
+        
         rospy.Subscriber('/ankle_exo/posterior/dynamixel_motor/goal_velocity_forceLoop', Int32, self.posterior_force_loop_callback)
         rospy.Subscriber('/ankle_exo/posterior/dynamixel_motor/goal_velocity_angleLoop', Int32, self.posterior_angle_loop_callback)
+        rospy.Subscriber('/ankle_exo/posterior/dynamixel_motor/status', DynamixelStatusList, self.posterior_status_callback)
 
         # ROS rate for control loop
         self.rate = rospy.Rate(100)  # 100 Hz
@@ -66,26 +76,53 @@ class VelocityPublisher:
 
     def frontal_angle_loop_callback(self, msg):
         self.frontal_angle_loop = msg.data
+    
+    def frontal_status_callback(self, msg):
+        frontal_status = msg.dynamixel_status
+        self.frontal_position = frontal_status[0].present_position
+        # Store the initial frontal position if not already set
+        if self.initial_frontal_position is None:
+            self.initial_frontal_position = self.frontal_position
 
     def posterior_force_loop_callback(self, msg):
         self.posterior_force_loop = msg.data
 
     def posterior_angle_loop_callback(self, msg):
         self.posterior_angle_loop = msg.data
-
-    def clamp_velocity(self, velocity):
-        # Clamp the velocity within the defined limits
-        return max(self.min_velocity, min(self.max_velocity, velocity))
+    
+    def posterior_status_callback(self, msg):
+        posterior_status = msg.dynamixel_status
+        self.posterior_position = posterior_status[0].present_position
+        # Store the initial posterior position if not already set
+        if self.initial_posterior_position is None:
+            self.initial_posterior_position = self.posterior_position
 
     def run(self):
         while not rospy.is_shutdown():
-            # Calculate the sum of force and angle loops for both frontal and posterior motors
-            frontal_velocity = self.frontal_force_loop + self.frontal_angle_loop
-            posterior_velocity = self.posterior_force_loop + self.posterior_angle_loop
 
-            # Clamp the velocities to ensure they are within the allowed range
-            frontal_velocity = self.clamp_velocity(frontal_velocity)
-            posterior_velocity = self.clamp_velocity(posterior_velocity)
+            # Check safety conditions for frontal motor
+            if (self.frontal_position is not None and
+                self.initial_frontal_position is not None and
+                (self.frontal_position > self.initial_frontal_position + 5000 or 
+                self.frontal_position < self.initial_frontal_position - 2000)):
+                
+                rospy.logwarn("Frontal motor exceeded safety limits. Shutting down.")
+                rospy.signal_shutdown("Frontal motor position exceeded limits.")
+
+            # Check safety conditions for posterior motor
+            if (self.posterior_position is not None and
+                self.initial_posterior_position is not None and
+                (self.posterior_position > self.initial_posterior_position + 5000 or 
+                self.posterior_position < self.initial_posterior_position - 2000)):
+
+                rospy.logwarn("Posterior motor exceeded safety limits. Shutting down.")
+                rospy.signal_shutdown("Posterior motor position exceeded limits.")
+
+            # Calculate the sum of force and angle loops for both frontal and posterior motors
+            # Linear Saturation to not exceed motor limits 
+            frontal_velocity = int(self.max_velocity*np.sinh((self.frontal_force_loop + self.frontal_angle_loop)/self.max_velocity))
+            posterior_velocity = int(self.max_velocity*np.sinh((self.posterior_force_loop + self.posterior_angle_loop)/self.max_velocity))
+
 
             # Publish the clamped velocities
             self.frontal_velocity_pub.publish(frontal_velocity)

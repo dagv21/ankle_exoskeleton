@@ -3,8 +3,9 @@
 import rospy
 from std_msgs.msg import Float32, Float32MultiArray
 import serial, os
+import numpy as np
 
-class AnkleExoskeletonNode:
+class LoadcellAcquisitionNode:
     def __init__(self):
         # Initialize the ROS node
         rospy.init_node('loadcells_acquisition_node', anonymous=True)
@@ -26,8 +27,27 @@ class AnkleExoskeletonNode:
         # ROS rate
         self.rate = rospy.Rate(100)  # 100 Hz
 
+        #Variables
+        self.prev_frontal_force = 0
+        self.prev_posterior_force = 0
+        self.alpha = 0.1  # Low-pass filter smoothing factor
+        self.window_size = 5  # Moving average window size
+        self.frontal_force_window = []
+        self.posterior_force_window = []
+
     def calculate_torque(self, force, distance):
         return force * distance
+
+    def low_pass_filter(self, new_value, prev_value):
+        # Simple low-pass filter: y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+        return self.alpha * new_value + (1 - self.alpha) * prev_value
+
+    def moving_average(self, data_window, new_value):
+        # Maintain a fixed-size window for moving average
+        data_window.append(new_value)
+        if len(data_window) > self.window_size:
+            data_window.pop(0)
+        return np.mean(data_window)
 
     def run(self):
         rospy.loginfo("Publishing Tendons Force and Joint Torque Data")
@@ -37,8 +57,24 @@ class AnkleExoskeletonNode:
                     line = self.ser.readline().decode('utf-8').strip()
                     forces = line.split(',')
                     if len(forces) == 2:
-                        frontal_force = round(float(forces[0]))
-                        posterior_force = round(float(forces[1]))
+                        frontal_force_raw = float(forces[0])
+                        posterior_force_raw = float(forces[1])
+
+                        # Apply low-pass filter
+                        frontal_force_filtered = self.low_pass_filter(frontal_force_raw, self.prev_frontal_force)
+                        posterior_force_filtered = self.low_pass_filter(posterior_force_raw, self.prev_posterior_force)
+
+                        # Apply moving average smoothing
+                        frontal_force_smooth = self.moving_average(self.frontal_force_window, frontal_force_filtered)
+                        posterior_force_smooth = self.moving_average(self.posterior_force_window, posterior_force_filtered)
+
+                        # Update previous values
+                        self.prev_frontal_force = frontal_force_filtered
+                        self.prev_posterior_force = posterior_force_filtered
+
+                        # Publish smoothed forces (rounded for example)
+                        frontal_force = round(frontal_force_smooth)
+                        posterior_force = round(posterior_force_smooth)
 
                         if frontal_force < 0:
                             frontal_force = 0
@@ -67,7 +103,7 @@ class AnkleExoskeletonNode:
 
 if __name__ == '__main__':
     try:
-        node = AnkleExoskeletonNode()
+        node = LoadcellAcquisitionNode()
         node.run()
     except rospy.ROSInterruptException:
         pass

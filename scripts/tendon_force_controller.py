@@ -93,21 +93,23 @@ class TendonForceController:
 
         # Control Gains (Relationship between lever arms)
         if id_motor == 1: #Frontal Motor
-            Kp_rolling = 3.8 
-            Kp_unrolling = 2
+            Kp_rolling = 3.5#3.5 
+            Kp_unrolling = 1
+            Kd = 0 #0.00005
         else:             #Posterior Motor
             Kp_rolling = 2.8
             Kp_unrolling = 1
+            Kd = 0
 
         # PD controller 
         if abs(error) > threshold:
             derivative = (error - prev_error) / dt if dt > 0 else 0.0
             if error > threshold: #Rolling Tendon
                 velocity_p = Kp_rolling * error 
-                velocity_d = 0.00005 * derivative
+                velocity_d = Kd * derivative
             else: #Unrolling Tendon
                 velocity_p = Kp_unrolling * error
-                velocity_d = 0.00005 * derivative
+                velocity_d = Kd * derivative
         else:
             error = 0
             velocity_p = 0
@@ -117,9 +119,11 @@ class TendonForceController:
 
         # Clamp the velocity within the limits
         if velocity > self.max_rpm:
-            velocity = self.max_rpm
+            print("Saturating Control")
+        #    velocity = self.max_rpm
         if velocity < self.min_rpm:
-            velocity = self.min_rpm
+            print("Saturating Control")
+        #    velocity = self.min_rpm
 
         # Convert RPM to control value
         self.prev_time = current_time

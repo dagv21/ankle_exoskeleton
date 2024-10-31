@@ -29,6 +29,10 @@ class AnkleAngleEstimator:
 
         self.initial_angle = 0
 
+        # Variables for smoothing
+        self.window_size = 3
+        self.angle_window = []
+
     def foot_imu_callback(self, msg):
         self.foot_imu_data = msg
         self.process_data()
@@ -58,7 +62,21 @@ class AnkleAngleEstimator:
                 self.initialize(q_foot, q_shank)
             else:
                 ankle_angle = self.calculate_ankle_angle(q_foot, q_shank) - self.initial_angle
-                self.publish_ankle_angle(ankle_angle)
+                self.angle_window.append(ankle_angle)
+
+                # Keep only the last `window_size` elements in the window
+                if len(self.angle_window) > self.window_size:
+                    self.angle_window.pop(0)
+
+                # Calculate the moving average
+                smoothed_angle = sum(self.angle_window) / len(self.angle_window)
+
+                # Publish the smoothed angle
+                self.publish_ankle_angle(smoothed_angle)
+                #self.publish_ankle_angle(ankle_angle)
+            
+            self.foot_imu_data = None
+            self.shank_imu_data = None
 
     def initialize(self, q_foot, q_shank):
         if rospy.Time.now() - self.start_time < rospy.Duration(self.initialization_duration):

@@ -1,6 +1,6 @@
 <launch>
-  <arg name="usb_port_frontal" default="/dev/ttyUSB0"/>
-  <arg name="usb_port_posterior" default="/dev/ttyUSB1"/>
+  <arg name="usb_port_frontal" default="/dev/ttyUSB3"/>
+  <arg name="usb_port_posterior" default="/dev/ttyUSB4"/>
 
   <arg name="dxl_baud_rate" default="4000000"/>
 

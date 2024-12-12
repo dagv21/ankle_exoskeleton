@@ -97,7 +97,7 @@ class IMUBNOArduinoNode:
 
 if __name__ == '__main__':
     try:
-        port = rospy.get_param('port_name', '/dev/ttyUSB3')
+        port = rospy.get_param('port_name', '/dev/ttyUSB0')
         imu_node = IMUBNOArduinoNode(port)
         rate = rospy.Rate(500)
         while not rospy.is_shutdown():

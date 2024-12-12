@@ -120,9 +120,8 @@ class VelocityPublisher:
 
             # Calculate the sum of force and angle loops for both frontal and posterior motors
             # Linear Saturation to not exceed motor limits 
-            frontal_velocity = int(self.max_velocity*np.sinh((self.frontal_force_loop + self.frontal_angle_loop)/self.max_velocity))
-            posterior_velocity = int(self.max_velocity*np.sinh((self.posterior_force_loop + self.posterior_angle_loop)/self.max_velocity))
-
+            frontal_velocity = int(self.max_velocity*np.tanh((self.frontal_force_loop + self.frontal_angle_loop)/self.max_velocity))
+            posterior_velocity = int(self.max_velocity*np.tanh((self.posterior_force_loop + self.posterior_angle_loop)/self.max_velocity))
 
             # Publish the clamped velocities
             self.frontal_velocity_pub.publish(frontal_velocity)

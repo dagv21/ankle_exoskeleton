@@ -10,7 +10,7 @@ class TendonForceController:
         # Initialize the ROS node
         rospy.init_node('tendon_force_controller', anonymous=True)
 
-        self.desired_tendon_force = rospy.get_param('~desired_tendon_force', 10)  # Default value is 15N
+        self.desired_tendon_force = rospy.get_param('~desired_tendon_force', 5)  # Default value is 15N
 
         # Publishers for motor goal velocities
         self.frontal_velocity_pub = rospy.Publisher('/ankle_exo/frontal/dynamixel_motor/goal_velocity_forceLoop', Int32, queue_size=2)
@@ -50,7 +50,7 @@ class TendonForceController:
         #self.activate_motors()
 
         # Set shutdown hook
-        #rospy.on_shutdown(self.shutdown_hook)
+        rospy.on_shutdown(self.shutdown_hook)
 
     # def activate_motors(self):
     #     try:
@@ -93,13 +93,13 @@ class TendonForceController:
 
         # Control Gains (Relationship between lever arms)
         if id_motor == 1: #Frontal Motor
-            Kp_rolling = 3.5#3.5 
+            Kp_rolling = 4.5#3.5 
             Kp_unrolling = 1
-            Kd = 0 #0.00005
+            Kd = 0.00035 #0.00005
         else:             #Posterior Motor
             Kp_rolling = 2.8
-            Kp_unrolling = 1
-            Kd = 0
+            Kp_unrolling = 0.8
+            Kd = 0.000005
 
         # PD controller 
         if abs(error) > threshold:
@@ -118,11 +118,11 @@ class TendonForceController:
         velocity = velocity_p + velocity_d
 
         # Clamp the velocity within the limits
-        if velocity > self.max_rpm:
-            print("Saturating Control")
+        #if velocity > self.max_rpm:
+        #    print("Saturating Control: Vel " + str(velocity))
         #    velocity = self.max_rpm
-        if velocity < self.min_rpm:
-            print("Saturating Control")
+        #if velocity < self.min_rpm:
+        #    print("Saturating Control: Vel " + str(velocity))
         #    velocity = self.min_rpm
 
         # Convert RPM to control value
@@ -160,36 +160,13 @@ class TendonForceController:
                 self.sw_cmd = None
 
             self.rate.sleep()
-            
+           
         rospy.loginfo("Tendon Force Controller Finished")
 
-    # def shutdown_hook(self):
-    #     # Stop the motors by setting the velocity to 0
-    #     self.frontal_velocity_pub.publish(0)
-    #     self.posterior_velocity_pub.publish(0)
-
-    #     # Call services to disable torque for both motors
-    #     try:
-    #         rospy.wait_for_service('/ankle_exo/frontal/dynamixel_motor/torque_enable')
-    #         rospy.wait_for_service('/ankle_exo/posterior/dynamixel_motor/torque_enable')
-
-    #         disable_torque_frontal = rospy.ServiceProxy('/ankle_exo/frontal/dynamixel_motor/torque_enable', DynamixelCmdSimplified)
-    #         disable_torque_posterior = rospy.ServiceProxy('/ankle_exo/posterior/dynamixel_motor/torque_enable', DynamixelCmdSimplified)
-
-    #         # Create the request to disable torque (id: 0, value: 0)
-    #         request = DynamixelCmdSimplifiedRequest(id=0, value=0)
-
-    #         # Call the services to disable the torque
-    #         res_frontal = disable_torque_frontal(request)
-    #         res_posterior = disable_torque_posterior(request)
-
-    #         if res_frontal.comm_result and res_posterior.comm_result:
-    #             rospy.loginfo("Torque disabled for both motors.")
-    #         else:
-    #             rospy.logwarn("Failed to disable torque for one or both motors.")
-
-    #     except rospy.ServiceException as e:
-    #         rospy.logerr(f"Service call failed: {e}")
+    def shutdown_hook(self):
+        # Stop the motors by setting the velocity to 0
+        self.frontal_velocity_pub.publish(0)
+        self.posterior_velocity_pub.publish(0)
 
 if __name__ == '__main__':
     try:

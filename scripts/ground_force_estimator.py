@@ -33,7 +33,7 @@ class vGRFEstimator:
         self.running_peak = 0  # Store the running peak
         self.decay_factor = 0.9999  # Decay factor to slowly reduce the peak over time
         # Method Last Cycle Peak | fun -> normalize_vGRF2
-        self.noise_threshold = 200
+        self.noise_threshold = 400
         self.last_peak = 1.0  # Store the last peak for normalization, initialized to 1 to avoid division by zero
         self.vGRF_cycle = []  # Buffer to store vGRF values during the current cycle
         self.in_stance = False

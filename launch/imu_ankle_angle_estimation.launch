@@ -1,0 +1,10 @@
+<launch>
+    <!-- Launch Xsens xIMU3 acquisition node -->
+    <node name="ximu3_acquisition" pkg="ankle_exoskeleton" type="ximu3_multiple_acquisition.py" output="screen">
+    </node>
+
+    <!-- Launch ankle angle estimator node -->
+    <node name="ankle_angle_estimator" pkg="ankle_exoskeleton" type="ankle_angle_estimator.py" output="screen">
+    </node>
+</launch>
+

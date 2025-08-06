@@ -1,0 +1,13 @@
+<launch>
+    <!-- Parameters -->
+    <!-- Default: body_weight = 60 kg -->
+    <!-- Options: insole_side = "left" or "right" -->
+    
+
+    <!-- Moticon Insole Acquisition node -->
+    <node name="insole_acquisition" pkg="moticon_insole" type="insole_acquisition.py" output="screen">
+        <param name="body_weight" value="71" />
+        <param name="insole_side" value="left" />
+    </node>
+</launch>
+

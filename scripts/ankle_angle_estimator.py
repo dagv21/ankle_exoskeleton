@@ -11,10 +11,11 @@ class AnkleAngleEstimator:
     def __init__(self):
         rospy.init_node('ankle_angle_estimator', anonymous=True)
 
-        self.foot_imu_sub = rospy.Subscriber('/foot/imu_data', IMUData, self.foot_imu_callback)
-        self.shank_imu_sub = rospy.Subscriber('/shank/imu_data', IMUData, self.shank_imu_callback)
+        self.foot_imu_sub = rospy.Subscriber('/foot/quaternion', IMUData, self.foot_imu_callback)
+        self.shank_imu_sub = rospy.Subscriber('/shank/quaternion', IMUData, self.shank_imu_callback)
 
         self.ankle_angle_pub = rospy.Publisher('/ankle_joint/angle', Float64, queue_size=2)
+        self.ankle_angle_rad_pub = rospy.Publisher('/ankle_joint/angle_rad', Float64, queue_size=2)
 
         self.foot_imu_data = None
         self.shank_imu_data = None
@@ -24,7 +25,7 @@ class AnkleAngleEstimator:
         }
 
         self.initialized = False
-        self.initialization_duration = 5  # seconds
+        self.initialization_duration = 3  # seconds
         self.start_time = rospy.Time.now()
 
         self.initial_angle = 0
@@ -43,38 +44,44 @@ class AnkleAngleEstimator:
 
     def process_data(self):
         if self.foot_imu_data and self.shank_imu_data:
-            q_foot = R.from_quat([
-                self.foot_imu_data.quat_x,
-                self.foot_imu_data.quat_y,
-                self.foot_imu_data.quat_z,
-                self.foot_imu_data.quat_w
-            ])
-
-            q_shank = R.from_quat([
-                self.shank_imu_data.quat_x,
-                self.shank_imu_data.quat_y,
-                self.shank_imu_data.quat_z,
-                self.shank_imu_data.quat_w
-            ])
-
+            try:
+                q_foot = R.from_quat([
+                    self.foot_imu_data.quat_x,
+                    self.foot_imu_data.quat_y,
+                    self.foot_imu_data.quat_z,
+                    self.foot_imu_data.quat_w
+                ])
+            except Exception as e:
+                rospy.logwarn("Incomplete Foot Data")
+            try:
+                q_shank = R.from_quat([
+                    self.shank_imu_data.quat_x,
+                    self.shank_imu_data.quat_y,
+                    self.shank_imu_data.quat_z,
+                    self.shank_imu_data.quat_w
+                ])
+            except Exception as e:
+                rospy.logwarn("Incomplete Shank Data")
             if not self.initialized:
                 rospy.loginfo("Estimating Initial Posture")
                 self.initialize(q_foot, q_shank)
             else:
-                ankle_angle = self.calculate_ankle_angle(q_foot, q_shank) - self.initial_angle
-                self.angle_window.append(ankle_angle)
+                try:
+                    ankle_angle = self.calculate_ankle_angle(q_foot, q_shank) - self.initial_angle
+                    self.angle_window.append(ankle_angle)
 
-                # Keep only the last `window_size` elements in the window
-                if len(self.angle_window) > self.window_size:
-                    self.angle_window.pop(0)
+                    # Keep only the last `window_size` elements in the window
+                    if len(self.angle_window) > self.window_size:
+                        self.angle_window.pop(0)
 
-                # Calculate the moving average
-                smoothed_angle = sum(self.angle_window) / len(self.angle_window)
+                    # Calculate the moving average
+                    smoothed_angle = sum(self.angle_window) / len(self.angle_window)
 
-                # Publish the smoothed angle
-                self.publish_ankle_angle(smoothed_angle)
-                #self.publish_ankle_angle(ankle_angle)
-            
+                    # Publish the smoothed angle
+                    self.publish_ankle_angle(smoothed_angle)
+                    #self.publish_ankle_angle(ankle_angle)
+                except Exception as e:
+                    pass
             self.foot_imu_data = None
             self.shank_imu_data = None
 
@@ -102,6 +109,7 @@ class AnkleAngleEstimator:
         msg = Float64()
         msg.data = math.degrees(ankle_angle)
         self.ankle_angle_pub.publish(msg)
+        self.ankle_angle_rad_pub.publish(np.deg2rad(msg.data ))
 
     def run(self):
         rospy.spin()

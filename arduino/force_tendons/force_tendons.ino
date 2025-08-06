@@ -11,17 +11,17 @@
 HX711 scale, scale1;
 
 // Posterior Sensor PINs
-uint8_t dataPin1 = 11;
-uint8_t clockPin1 = 10;
+uint8_t dataPin1 = 8; //11;
+uint8_t clockPin1 = 9; //10;
 
 // Frontal Sensor PINs
-uint8_t dataPin2 = 12;
-uint8_t clockPin2 = 13;
+uint8_t dataPin2 = 10; //12;
+uint8_t clockPin2 = 11; //13;
 
 volatile float f_frontal, f_posterior;
 
-double offset_frontal = 19005;
-double offset_posterior = 51400;
+double offset_frontal = 0 ;//19005;
+double offset_posterior = 0; //51400;
 
 void setup()
 {
@@ -33,15 +33,15 @@ void setup()
   scale.tare();
   scale1.tare();
 
-  offset_frontal = scale1.read_medavg(15);
-  offset_posterior = scale.read_medavg(15);  
+  offset_frontal = scale1.read_medavg(30);
+  offset_posterior = scale.read_medavg(30);  
 }
 
 
 void loop()
 {
-  f_posterior = -(scale.read() - offset_posterior)*15.0/124000.0;
-  f_frontal = -(scale1.read() - offset_frontal)*15.0/182000.0;
+  f_posterior = -(scale.read() - offset_posterior) * (19.6 / 75000);
+  f_frontal   = -(scale1.read() - offset_frontal) * (19.6 / 73500);
   Serial.print(f_frontal);
   Serial.print(",");
   Serial.println(f_posterior);

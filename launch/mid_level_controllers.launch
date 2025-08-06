@@ -1,0 +1,17 @@
+<launch>
+    <!-- Launch the ankle angle controller -->
+    <node name="ankle_angle_controller" pkg="ankle_exoskeleton" type="ankle_angle_controller.py" output="screen">
+        <param name="kp_frontal" value="450.0" />
+        <param name="kd_frontal" value="50.0" />
+        <param name="ki_frontal" value="0.0" />
+        <param name="kp_posterior" value="450.0" />
+        <param name="kd_posterior" value="50.0" />
+        <param name="ki_posterior" value="0.0" />
+    </node>
+
+    <!-- Launch the tendon force controller -->
+    <node name="tendon_force_controller" pkg="ankle_exoskeleton" type="tendon_force_controller.py" output="screen">
+        <param name="desired_tendon_force" value="5.0" />
+    </node>
+</launch>
+

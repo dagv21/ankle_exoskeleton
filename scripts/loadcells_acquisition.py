@@ -12,16 +12,16 @@ class LoadcellAcquisitionNode:
 
         # Publisher for tendon force and joint torque
         self.tendons_force = rospy.Publisher('ankle_exo/tendons_force', Float32MultiArray, queue_size=2)
-        self.joint_torque_pub = rospy.Publisher('ankle_joint/net_torque', Float32, queue_size=2)
+        self.joint_torque_pub = rospy.Publisher('ankle_exo/net_torque', Float32, queue_size=2)
 
         # Serial port configuration
-        self.serial_port = "/dev/ttyUSB2"
+        self.serial_port = "/dev/ttyACM0"
         self.baud_rate = 250000
         os.system("sudo chmod 777 " + self.serial_port)
         self.ser = serial.Serial(self.serial_port, self.baud_rate, timeout=1)
 
         # Distances in meters
-        self.frontal_distance = 0.19  # 19 cm
+        self.frontal_distance = 0.16  # 16 cm
         self.posterior_distance = 0.15  # 15 cm
 
         # ROS rate
@@ -73,8 +73,10 @@ class LoadcellAcquisitionNode:
                         self.prev_posterior_force = posterior_force_filtered
 
                         # Publish smoothed forces (rounded for example)
-                        frontal_force = round(frontal_force_smooth)
-                        posterior_force = round(posterior_force_smooth)
+                        # frontal_force = round(frontal_force_smooth)
+                        # posterior_force = round(posterior_force_smooth)
+                        frontal_force = frontal_force_smooth
+                        posterior_force = posterior_force_smooth
 
                         if frontal_force < 0:
                             frontal_force = 0

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import rospy
+import rospy, rosgraph
 from std_msgs.msg import Int32
 from ankle_exoskeleton.srv import DynamixelCmdSimplified, DynamixelCmdSimplifiedRequest
 from ankle_exoskeleton.msg import DynamixelStatusList
@@ -10,10 +10,6 @@ class VelocityPublisher:
     def __init__(self):
         # Initialize the ROS node
         rospy.init_node('velocity_publisher', anonymous=True)
-
-        # Publishers for frontal and posterior goal velocities
-        self.frontal_velocity_pub = rospy.Publisher('/ankle_exo/frontal/dynamixel_motor/goal_velocity', Int32, queue_size=2)
-        self.posterior_velocity_pub = rospy.Publisher('/ankle_exo/posterior/dynamixel_motor/goal_velocity', Int32, queue_size=2)
 
         # Variables to store values from both loops
         self.frontal_force_loop = 0
@@ -26,9 +22,9 @@ class VelocityPublisher:
         self.posterior_position = None
         self.initial_posterior_position = None
 
-        # Maximum and minimum velocity limits
-        self.max_velocity = 240
-        self.min_velocity = -240
+        # Maximum and minimum velocity limits (Register Value)
+        self.max_velocity = 235
+        self.min_velocity = -235
 
         # Subscribers for the force and angle loop velocities
         rospy.Subscriber('/ankle_exo/frontal/dynamixel_motor/goal_velocity_forceLoop', Int32, self.frontal_force_loop_callback)
@@ -47,6 +43,10 @@ class VelocityPublisher:
 
         # Set shutdown hook
         rospy.on_shutdown(self.shutdown_hook)
+
+        # Publishers for frontal and posterior goal velocities
+        self.frontal_velocity_pub = rospy.Publisher('/ankle_exo/frontal/dynamixel_motor/goal_velocity', Int32, queue_size=2)
+        self.posterior_velocity_pub = rospy.Publisher('/ankle_exo/posterior/dynamixel_motor/goal_velocity', Int32, queue_size=2)
     
     def activate_motors(self):
         try:
@@ -97,14 +97,28 @@ class VelocityPublisher:
         if self.initial_posterior_position is None:
             self.initial_posterior_position = self.posterior_position
 
+    def is_node_running(self, node_substring):
+        try:
+            master = rosgraph.Master('/rospy')
+            _, _, publishers = master.getSystemState()
+            all_nodes = sum(publishers, [])
+            return any(node_substring in node for node in all_nodes)
+        except:
+            return False
+
     def run(self):
+        last_setpoint_change_time = rospy.get_time()
+        prev_frontal_angle_loop = self.frontal_angle_loop
+        prev_posterior_angle_loop = self.posterior_angle_loop
+
         while not rospy.is_shutdown():
+            current_time = rospy.get_time()
 
             # Check safety conditions for frontal motor
             if (self.frontal_position is not None and
                 self.initial_frontal_position is not None and
-                (self.frontal_position > self.initial_frontal_position + 5000 or 
-                self.frontal_position < self.initial_frontal_position - 2000)):
+                (self.frontal_position > self.initial_frontal_position + 8000 or 
+                self.frontal_position < self.initial_frontal_position - 8000)):
                 
                 rospy.logwarn("Frontal motor exceeded safety limits. Shutting down.")
                 rospy.signal_shutdown("Frontal motor position exceeded limits.")
@@ -112,16 +126,38 @@ class VelocityPublisher:
             # Check safety conditions for posterior motor
             if (self.posterior_position is not None and
                 self.initial_posterior_position is not None and
-                (self.posterior_position > self.initial_posterior_position + 5000 or 
-                self.posterior_position < self.initial_posterior_position - 2000)):
+                (self.posterior_position > self.initial_posterior_position + 8000 or 
+                self.posterior_position < self.initial_posterior_position - 8000)):
 
                 rospy.logwarn("Posterior motor exceeded safety limits. Shutting down.")
                 rospy.signal_shutdown("Posterior motor position exceeded limits.")
 
+            # Validation of the ankle angle controller
+            if not self.is_node_running('/ankle_angle_controller'):
+                self.frontal_angle_loop = 0
+                self.posterior_angle_loop = 0
+            # else:
+            #     # Check if setpoint changed
+            #     if (self.frontal_angle_loop != prev_frontal_angle_loop or 
+            #         self.posterior_angle_loop != prev_posterior_angle_loop):
+            #         last_setpoint_change_time = current_time
+            #         prev_frontal_angle_loop = self.frontal_angle_loop
+            #         prev_posterior_angle_loop = self.posterior_angle_loop
+            #     elif current_time - last_setpoint_change_time > 1:
+            #         # No change in setpoints for more than 0.5 seconds
+            #         self.frontal_angle_loop = 0
+            #         self.posterior_angle_loop = 0
+            #         rospy.loginfo("Set point not changing for 1 seconds. Setting angle loops to 0.")
+
+            
+            if not self.is_node_running('/tendon_force_controller'):
+                self.frontal_force_loop = 0
+                self.posterior_force_loop = 0
+
             # Calculate the sum of force and angle loops for both frontal and posterior motors
             # Linear Saturation to not exceed motor limits 
-            frontal_velocity = int(self.max_velocity*np.tanh((self.frontal_force_loop + self.frontal_angle_loop)/self.max_velocity))
-            posterior_velocity = int(self.max_velocity*np.tanh((self.posterior_force_loop + self.posterior_angle_loop)/self.max_velocity))
+            frontal_velocity = int(self.max_velocity*np.tanh(2.65*(self.frontal_force_loop + self.frontal_angle_loop)/self.max_velocity))
+            posterior_velocity = int(self.max_velocity*np.tanh(2.65*(self.posterior_force_loop + self.posterior_angle_loop)/self.max_velocity))
 
             # Publish the clamped velocities
             self.frontal_velocity_pub.publish(frontal_velocity)

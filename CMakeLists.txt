@@ -102,43 +102,10 @@ target_link_libraries(dynamixel_workbench ${catkin_LIBRARIES})
 add_executable(dynamixel_controllers src/nodes/dynamixel_controllers.cpp)
 target_link_libraries(dynamixel_controllers ${catkin_LIBRARIES} dynamixel_workbench ${Eigen3_LIBRARIES} ${YAML_CPP_LIBRARIES})
 
-add_executable(torque_based_vel_controller src/nodes/torque_based_vel_controller.cpp)
-target_link_libraries(torque_based_vel_controller ${catkin_LIBRARIES} ${YAML_CPP_LIBRARIES})
-
-# A collection of utilities for the gait phase classifier
-add_library(feature_extractor
-  src/util/feature_extractor.cpp
-)
-target_link_libraries(feature_extractor
-  ${catkin_LIBRARIES}
-)
-
-add_library(gait_cycle_classifier
-  src/util/gait_cycle_classifier.cpp
-)
-target_link_libraries(gait_cycle_classifier
-  ${catkin_LIBRARIES}
-  feature_extractor
-)
-# Build main ROS node for threshold-based gait phase detection
-add_executable(threshold_detection_node src/nodes/threshold_detection_node.cpp)
-target_link_libraries(threshold_detection_node
-  ${catkin_LIBRARIES}
-  feature_extractor
-  gait_cycle_classifier
-)
-# Build main ROS node for offline threshold-based gait phase detection
-add_executable(offline_threshold_detection_node src/nodes/offline_threshold_detection_node.cpp)
-target_link_libraries(offline_threshold_detection_node
-  ${catkin_LIBRARIES}
-  feature_extractor
-  gait_cycle_classifier
-)
-
 ################################################################################
 # Install
 ################################################################################
-install(TARGETS dynamixel_workbench dynamixel_controllers torque_based_vel_controller feature_extractor gait_cycle_classifier threshold_detection_node offline_threshold_detection_node
+install(TARGETS dynamixel_workbench dynamixel_controllers
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

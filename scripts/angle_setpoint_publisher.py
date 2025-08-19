@@ -12,7 +12,7 @@ class AnkleSetPointPublisher:
 
         # Parameters
         self.use_external_reference = rospy.get_param('~use_external_reference', False)
-        self.use_admittance = rospy.get_param('~use_admittance', True)
+        self.use_admittance = rospy.get_param('~use_admittance', False)
         self.threshold = np.deg2rad(0.5)   #Radians
 
         # Initialize variables
@@ -35,7 +35,7 @@ class AnkleSetPointPublisher:
             self.global_goal_angle_pub = rospy.Publisher('/ankle_joint/global_goal_angle', Float64, queue_size=2)
 
         # ROS rate
-        self.rate = rospy.Rate(50)  # 50 Hz
+        self.rate = rospy.Rate(30)  # 50 Hz
         # Set shutdown hook
         rospy.on_shutdown(self.shutdown_hook)
 
